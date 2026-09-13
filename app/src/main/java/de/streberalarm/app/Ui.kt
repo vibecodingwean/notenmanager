@@ -74,7 +74,14 @@ fun Panel(title: String? = null, content: @Composable ColumnScope.() -> Unit) {
                 contentColor = Ink,
             ),
     ) {
-        Column(Modifier.padding(18.dp).then(if(LocalLook.current==AppLook.HACKER) Modifier.testTag("crt-monitor") else Modifier), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(
+            Modifier.padding(18.dp)
+                .then(
+                    if (LocalLook.current == AppLook.HACKER) Modifier.testTag("crt-monitor")
+                    else Modifier
+                ),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
             if (title != null)
                 Text(
                     title,
@@ -514,6 +521,8 @@ fun TodayPage(
             }
             .sortedBy { it.date + it.time.orEmpty() }
     Page("Dein Tag", today.format(DateTimeFormatter.ofPattern("EEEE, d. MMMM", Locale.GERMAN))) {
+        val overview = remember(p, d) { GradeOverviewCalculator.calculate(p, d) }
+        OverallAveragePanel(p, overview)
         val running = d.studies.firstOrNull { it.end == null }
         if (running != null)
             Panel("Lerntimer läuft") {
@@ -528,18 +537,6 @@ fun TodayPage(
                     Text("Gerät neu gestartet: Bitte die Lernzeit nach dem Stoppen prüfen.")
                 TextButton({ exam(running.assessmentId) }) { Text("Zur Lernkarte") }
             }
-        val coach =
-            remember(p, d, today) {
-                PassingCoach.advice(p, d, upcoming.any { it.date <= today.plusDays(2).toString() })
-            }
-        Panel(coach.title) {
-            Text(coach.message, Modifier.testTag("passing-advice"))
-            if (coach.canRelax)
-                Text(
-                    "Ein gutes Ross springt nur so gut, wie es muss.",
-                    style = MaterialTheme.typography.bodySmall,
-                )
-        }
         EstimatePrompts.due(d, SchoolZonedTime.fromEpochMillis(now, ZoneId.systemDefault().id))
             .firstOrNull()
             ?.let { e ->

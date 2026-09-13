@@ -21,19 +21,7 @@ fun GradeOverviewPanel(p: Profile, d: SchoolData) {
         Modifier.fillMaxWidth().testTag("grade-overview"),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Panel("Dein Gesamtschnitt") {
-            Text(
-                "Ø ${number(result.average)}${if (p.points) " Punkte" else ""}",
-                Modifier.testTag("overall-average"),
-                style = MaterialTheme.typography.displayMedium,
-                fontWeight = FontWeight.Bold,
-                color = Green,
-            )
-            Text(
-                "Aus ${result.averageCount} von ${result.subjectCount} Fächern · jedes Fach zählt einmal.",
-                style = MaterialTheme.typography.bodySmall,
-            )
-        }
+        OverallAveragePanel(p, result)
         Panel("Vorrücken") {
             Row(
                 Modifier.testTag("promotion-${result.light.name.lowercase()}"),
@@ -128,5 +116,22 @@ fun GradeOverviewPanel(p: Profile, d: SchoolData) {
             }
             result.sources.forEach { Source(it) }
         }
+    }
+}
+
+@Composable
+fun OverallAveragePanel(p: Profile, result: GradeOverview) {
+    Panel("Dein Gesamtschnitt") {
+        Text(
+            "Ø ${number(result.average)}${if (p.points) " Punkte" else ""}",
+            Modifier.testTag("overall-average"),
+            style = MaterialTheme.typography.displayMedium,
+            fontWeight = FontWeight.Bold,
+            color = Green,
+        )
+        Text(
+            "Aus ${result.averageCount} von ${result.subjectCount} Fächern · jedes Fach zählt einmal.",
+            style = MaterialTheme.typography.bodySmall,
+        )
     }
 }

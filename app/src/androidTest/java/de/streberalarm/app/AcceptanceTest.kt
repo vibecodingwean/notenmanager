@@ -106,11 +106,11 @@ class AcceptanceTest {
     }
 
     @Test
-    fun passingAdviceUsesRelevantSubjectsAndAvoidsFalseAllClear() {
+    fun todayShowsSameAverageAsGradesWithoutCoachMessage() {
         val p = profile.copy(school = School.REALSCHULE, grade = 8, track = "I")
         val subjects = (1..4).map { Subject(profileId = p.id, name = "Fach $it", promotion = true) }
-        fun marks(values: List<Int>) =
-            subjects.zip(values).map { (s, n) ->
+        val marks =
+            subjects.zip(listOf(1, 1, 6, 6)).map { (s, n) ->
                 Assessment(
                     subjectId = s.id,
                     title = "Probe",
@@ -121,21 +121,16 @@ class AcceptanceTest {
                 )
             }
         runBlocking {
-            repo.update {
-                it.copy(
-                    profiles = listOf(p),
-                    subjects = subjects,
-                    assessments = marks(listOf(1, 1, 6, 6)),
-                )
-            }
+            repo.update { it.copy(profiles = listOf(p), subjects = subjects, assessments = marks) }
         }
-        visible(ui.onNodeWithTag("passing-advice"))
-            .assertTextContains("Dein Schnitt allein sagt nicht alles.", substring = true)
+        ui.onNodeWithTag("overall-average").assertTextEquals("Ø 3,50")
+        ui.onNodeWithTag("passing-advice").assertDoesNotExist()
         ui.onNodeWithText("Läuft bei dir").assertDoesNotExist()
-        runBlocking { repo.update { it.copy(assessments = marks(listOf(3, 4, 3, 4))) } }
-        visible(ui.onNodeWithTag("passing-advice"))
-            .assertTextContains("Feierabend", substring = true)
-        ui.onNodeWithText("Läuft bei dir").assertExists()
+        ui.onNodeWithTag("nav-Meine Noten").performClick()
+        ui.onNodeWithTag("overall-average").assertTextEquals("Ø 3,50")
+        ui.onNodeWithTag("nav-Heute").performClick()
+        runBlocking { repo.update { it.copy(assessments = emptyList()) } }
+        ui.onNodeWithTag("overall-average").assertTextEquals("Ø –")
     }
 
     @Test
