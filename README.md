@@ -43,3 +43,7 @@ Das enthaltene Regelpaket ist an Bayern und das Schuljahr 2026/27 gebunden. Rech
 ## Lizenz und Verteilung
 
 Der Quellcode steht unter der [MIT-Lizenz](LICENSE). Android-APKs und App Bundles werden nicht in diesem Repository oder seinen Releases angeboten. Du kannst die App selbst bauen. Eine kostenpflichtige App-Verteilung ändert die MIT-Rechte am veröffentlichten Quellcode nicht.
+
+## Website und Tutorial
+
+[StreberAlarm entdecken](https://app.wean.de/streberalarm/) – mit deutschem Tutorial und Datenschutzhinweisen.
