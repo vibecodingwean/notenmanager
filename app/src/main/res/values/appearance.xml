@@ -1,0 +1,35 @@
+<resources>
+    <style name="DarkWheelClockWidget" parent="android:style/Widget.Material.TimePicker">
+        <item name="android:timePickerMode">spinner</item>
+    </style>
+    <style name="HackerDateDialog" parent="android:style/Theme.Material.Dialog.Alert">
+        <item name="android:colorAccent">#71FF48</item>
+    </style>
+    <style name="HackerClockDialog" parent="HackerDateDialog">
+        <item name="android:timePickerStyle">@style/DarkWheelClockWidget</item>
+    </style>
+    <style name="SocialDateDialog" parent="android:style/Theme.Material.Light.Dialog.Alert">
+        <item name="android:colorAccent">#993066</item>
+    </style>
+    <style name="SocialClockDialog" parent="SocialDateDialog">
+        <item name="android:timePickerStyle">@style/WheelClockWidget</item>
+    </style>
+    <style name="StreamerDateDialog" parent="android:style/Theme.Material.Dialog.Alert">
+        <item name="android:colorAccent">#DFB6FF</item>
+    </style>
+    <style name="StreamerClockDialog" parent="StreamerDateDialog">
+        <item name="android:timePickerStyle">@style/DarkWheelClockWidget</item>
+    </style>
+    <style name="OrbitDateDialog" parent="android:style/Theme.Material.Dialog.Alert">
+        <item name="android:colorAccent">#A1D9FF</item>
+    </style>
+    <style name="OrbitClockDialog" parent="OrbitDateDialog">
+        <item name="android:timePickerStyle">@style/DarkWheelClockWidget</item>
+    </style>
+    <style name="PixelDateDialog" parent="android:style/Theme.Material.Light.Dialog.Alert">
+        <item name="android:colorAccent">#285B31</item>
+    </style>
+    <style name="PixelClockDialog" parent="PixelDateDialog">
+        <item name="android:timePickerStyle">@style/WheelClockWidget</item>
+    </style>
+</resources>

@@ -1,0 +1,15 @@
+Behalte deinen Schulalltag im Blick: StreberAlarm verbindet Notenübersicht, Prüfungstermine, Stundenplan und Lernzeit.
+
+DEIN LERNPLAN
+Sammle Lernstoff und Notizen bei jeder Prüfung. Erfasse Lernphasen mit einem Timer und sieh, wie viele Unterrichtstermine noch bleiben. Zusammenhängende Doppelstunden zählen als ein Termin.
+
+DEINE NOTEN
+Halte tatsächliche Bewertungen und eigene Einschätzungen getrennt fest. Die Berechnungsansicht erklärt die verwendeten Gewichte. Offizielle Zeugnisnoten werden separat eingetragen.
+
+DEINE UNTERLAGEN
+Fotografiere mehrseitige Arbeiten, schneide sie zu und drehe die Seiten. Nutze den lokalen Scanner oder wähle Google ML Kit nach einem Datenschutzhinweis. Vorhandene Bilder und PDFs können ebenfalls importiert werden.
+
+DEINE DATEN
+Kein Konto und keine Werbung. Schul- und Lerndaten bleiben lokal. Sichere sie einschließlich der Dokumente in einem passwortgeschützten Backup. Google ML Kit ist optional und kann Diagnose- und Nutzungsdaten verarbeiten.
+
+Hinweise zu bayerischen Schulregeln sind abhängig von vollständigen Eingaben und dem unterstützten Schuljahr. Die Entscheidungen deiner Schule und amtliche Zeugnisse bleiben maßgeblich.

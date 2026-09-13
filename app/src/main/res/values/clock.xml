@@ -1,0 +1,9 @@
+<resources>
+    <style name="WheelClockDialog" parent="android:style/Theme.Material.Light.Dialog.Alert">
+        <item name="android:timePickerStyle">@style/WheelClockWidget</item>
+        <item name="android:colorAccent">#3653BD</item>
+    </style>
+    <style name="WheelClockWidget" parent="android:style/Widget.Material.Light.TimePicker">
+        <item name="android:timePickerMode">spinner</item>
+    </style>
+</resources>
