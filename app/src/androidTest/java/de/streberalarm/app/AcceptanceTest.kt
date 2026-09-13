@@ -978,7 +978,7 @@ class AcceptanceTest {
     fun timedEstimateNotificationIsPersistentAndReschedulingCancelsIt() {
         val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
         device.executeShellCommand(
-            "pm grant de.streberalarm.app android.permission.POST_NOTIFICATIONS"
+            "pm grant com.streberalarm.app android.permission.POST_NOTIFICATIONS"
         )
         val manager = ui.activity.getSystemService(android.app.NotificationManager::class.java)
         manager.cancelAll()
@@ -1012,7 +1012,7 @@ class AcceptanceTest {
     fun gradeEntryPostsEstimateQuestionAndNotificationOpensSingleQuestion() {
         UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
             .executeShellCommand(
-                "pm grant de.streberalarm.app android.permission.POST_NOTIFICATIONS"
+                "pm grant com.streberalarm.app android.permission.POST_NOTIFICATIONS"
             )
         val manager = ui.activity.getSystemService(android.app.NotificationManager::class.java)
         manager.cancelAll()
@@ -1084,7 +1084,7 @@ class AcceptanceTest {
         }
         UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
             .executeShellCommand(
-                "pm grant de.streberalarm.app android.permission.POST_NOTIFICATIONS"
+                "pm grant com.streberalarm.app android.permission.POST_NOTIFICATIONS"
             )
         runBlocking { repo.refreshEstimates() }
         assertTrue(manager.activeNotifications.none { it.tag == "estimate:${exam.id}" })
@@ -1181,7 +1181,7 @@ class AcceptanceTest {
         } finally {
             pdf.close()
         }
-        val uri = FileProvider.getUriForFile(ui.activity, "de.streberalarm.app.files", source)
+        val uri = FileProvider.getUriForFile(ui.activity, "com.streberalarm.app.files", source)
         runBlocking { repo.importDocuments(exam.id, listOf(uri)) }
         tap("Unterlagen")
         tap("Dokument 1.pdf")
@@ -1226,7 +1226,7 @@ class AcceptanceTest {
 
     @Test
     fun onboardingUnsupportedStateAndSettings() {
-        assertEquals("de.streberalarm.app", ui.activity.packageName)
+        assertEquals("com.streberalarm.app", ui.activity.packageName)
         val appInfo = ui.activity.applicationInfo
         assertEquals("StreberAlarm", appInfo.loadLabel(ui.activity.packageManager).toString())
         val launcherIcon = appInfo.loadIcon(ui.activity.packageManager)
@@ -1378,7 +1378,7 @@ class AcceptanceTest {
     @Test
     fun gradeEntryCanPhotographTwoPagesWithoutLosingTheChosenGrade() {
         val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
-        device.executeShellCommand("pm grant de.streberalarm.app android.permission.CAMERA")
+        device.executeShellCommand("pm grant com.streberalarm.app android.permission.CAMERA")
         val exam =
             Assessment(
                 subjectId = subject.id,
@@ -1439,7 +1439,7 @@ class AcceptanceTest {
     @Test
     fun cameraTwoPagesRotateAndLocalPdf() {
         val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
-        device.executeShellCommand("pm grant de.streberalarm.app android.permission.CAMERA")
+        device.executeShellCommand("pm grant com.streberalarm.app android.permission.CAMERA")
         val e = Assessment(subjectId = subject.id, title = "Scanablauf", date = "2026-10-01")
         runBlocking { repo.update { it.copy(assessments = listOf(e)) } }
         openArchive()
@@ -1505,7 +1505,7 @@ class AcceptanceTest {
         val alarms =
             UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
                 .executeShellCommand("dumpsys alarm")
-        assertTrue(alarms.contains("de.streberalarm.app"))
+        assertTrue(alarms.contains("com.streberalarm.app"))
         runBlocking { repo.stop() }
     }
 
@@ -1523,7 +1523,7 @@ class AcceptanceTest {
         val providers =
             ui.activity.packageManager
                 .getPackageInfo(
-                    "de.streberalarm.app",
+                    "com.streberalarm.app",
                     android.content.pm.PackageManager.GET_PROVIDERS,
                 )
                 .providers
