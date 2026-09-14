@@ -12,8 +12,8 @@ android {
         applicationId = "com.streberalarm.app"
         minSdk = 29
         targetSdk = 36
-        versionCode = 14
-        versionName = "0.1.13-dev"
+        versionCode = 15
+        versionName = "0.1.14-dev"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildFeatures {
