@@ -33,11 +33,13 @@ fun ProfileForm(save: (Profile) -> Unit) {
             Panel("Deine Schule") {
                 Pick("Bundesland", state, Defaults.states) { state = it }
                 Pick("Schulart", school.label, School.entries.map { it.label }) {
-                    school = School.entries.first { s -> s.label == it }
-                    track = Defaults.tracks(school).first()
-                    grade = grade.coerceIn(Defaults.grades(school))
+                    val selectedSchool = School.entries.first { s -> s.label == it }
+                    val selectedGrade = grade.coerceIn(Defaults.grades(selectedSchool))
+                    school = selectedSchool
+                    grade = selectedGrade
+                    track = Defaults.tracks(selectedSchool, selectedGrade).first()
                 }
-                val tracks = Defaults.tracks(school)
+                val tracks = Defaults.tracks(school, grade)
                 if (school != School.GRUNDSCHULE)
                     Pick(
                         "Schulzweig",
@@ -66,8 +68,13 @@ fun ProfileForm(save: (Profile) -> Unit) {
                     "$grade. Klasse",
                     Defaults.grades(school).map { "$it. Klasse" },
                 ) {
-                    grade = it.substringBefore('.').toInt()
+                    val selectedGrade = it.substringBefore('.').toInt()
+                    val tracks = Defaults.tracks(school, selectedGrade)
+                    grade = selectedGrade
+                    if (track !in tracks) track = tracks.first()
                 }
+                if (school == School.REALSCHULE && grade < 7)
+                    Text("In Klasse 5 und 6 gibt es noch keinen Schulzweig.")
                 Pick(
                     "Schuljahr",
                     "$year/${(year + 1) % 100}",

@@ -1351,6 +1351,27 @@ class AcceptanceTest {
     }
 
     @Test
+    fun realschuleFifthGradeHasNoTrack() {
+        runBlocking { repo.update { SchoolData() } }
+        ui.waitForIdle()
+        choose("Schulart", "Realschule")
+        choose("Schulzweig", "II · Wirtschaft und Rechnungswesen")
+        tap("Weiter")
+        choose("Deine Klasse", "5. Klasse")
+        ui.onNodeWithText("In Klasse 5 und 6 gibt es noch keinen Schulzweig.").assertExists()
+        tap("Los geht’s")
+        ui.waitUntil(5000) { runBlocking { repo.current().active() != null } }
+
+        val data = runBlocking { repo.current() }
+        assertEquals(Defaults.NO_TRACK, data.active()!!.track)
+        assertFalse(data.subjects.any { it.name == "Betriebswirtschaftslehre/Rechnungswesen" })
+        assertEquals(
+            setOf("Deutsch", "Mathematik", "Englisch"),
+            data.subjects.filter { it.core }.map { it.name }.toSet(),
+        )
+    }
+
+    @Test
     fun settingsWheelDistinguishesProfilesAndKeepsTheirData() {
         val first = Profile(school = School.REALSCHULE, track = "I")
         val second = first.copy(id = id(), track = "II")

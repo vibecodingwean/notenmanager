@@ -1,6 +1,8 @@
 package de.streberalarm.core
 
 object Defaults {
+    const val NO_TRACK = "Kein Zweig"
+
     val states =
         listOf(
             "Bayern",
@@ -21,20 +23,22 @@ object Defaults {
             "Thüringen",
         )
 
-    fun tracks(s: School) =
+    fun tracks(s: School, grade: Int? = null) =
         when (s) {
             School.GRUNDSCHULE -> listOf("Grundschule")
             School.GYMNASIUM -> listOf("NTG", "SG", "HG", "MuG", "WWG", "SWG")
             School.REALSCHULE ->
-                listOf(
-                    "I",
-                    "II",
-                    "IIIa",
-                    "IIIb · Kunst",
-                    "IIIb · Werken",
-                    "IIIb · Ernährung und Gesundheit",
-                    "IIIb · Sozialwesen",
-                )
+                if (grade != null && grade < 7) listOf(NO_TRACK)
+                else
+                    listOf(
+                        "I",
+                        "II",
+                        "IIIa",
+                        "IIIb · Kunst",
+                        "IIIb · Werken",
+                        "IIIb · Ernährung und Gesundheit",
+                        "IIIb · Sozialwesen",
+                    )
             else -> listOf("Technik", "Wirtschaft und Kommunikation", "Ernährung und Soziales")
         }
 
@@ -44,6 +48,7 @@ object Defaults {
         when (school) {
             School.REALSCHULE ->
                 when (track) {
+                    NO_TRACK -> "Noch kein Zweig"
                     "I" -> "I · Mathematik, Naturwissenschaften und Technik"
                     "II" -> "II · Wirtschaft und Rechnungswesen"
                     "IIIa" -> "IIIa · Fremdsprachen (Französisch)"
