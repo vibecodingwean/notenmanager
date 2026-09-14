@@ -474,6 +474,9 @@ fun StreberAlarm(activity: MainActivity) {
                                         { open("subject", it) },
                                         { open("subjectEdit") },
                                         { open("transfer") },
+                                        { id ->
+                                            activity.action { activity.repo.deleteSubject(id) }
+                                        },
                                     )
                                 2 ->
                                     LearningPage(
@@ -656,7 +659,10 @@ fun SubjectsPage(
     open: (String) -> Unit,
     add: () -> Unit,
     transfer: () -> Unit,
+    delete: (String) -> Unit,
 ) {
+    var subjectMenu by remember { mutableStateOf<Subject?>(null) }
+    var pendingDelete by remember { mutableStateOf<Subject?>(null) }
     Page("Meine Noten") {
         if (p.school == School.GRUNDSCHULE) TransferPanel(p, d, transfer)
         else GradeOverviewPanel(p, d)
@@ -666,8 +672,14 @@ fun SubjectsPage(
             .forEach { s ->
                 val calc = Grades.calculate(p, s, d.assessments)
                 Card(
-                    onClick = { open(s.id) },
-                    modifier = Modifier.fillMaxWidth().monitor().testTag("subject-${s.id}"),
+                    modifier =
+                        Modifier.fillMaxWidth()
+                            .monitor()
+                            .combinedClickable(
+                                onClick = { open(s.id) },
+                                onLongClick = { subjectMenu = s },
+                            )
+                            .testTag("subject-${s.id}"),
                     border = lookBorder(),
                     colors =
                         CardDefaults.cardColors(
@@ -729,6 +741,41 @@ fun SubjectsPage(
                 "Ist ein Fach beides, bleibt es violett. Die Farben folgen der Einordnung im Fach und bewerten keine Noten."
             )
         }
+    }
+    subjectMenu?.let { subject ->
+        AlertDialog(
+            onDismissRequest = { subjectMenu = null },
+            title = { Text(subject.name) },
+            confirmButton = {
+                TextButton({
+                    subjectMenu = null
+                    pendingDelete = subject
+                }) {
+                    Text("Löschen", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = { TextButton({ subjectMenu = null }) { Text("Abbrechen") } },
+        )
+    }
+    pendingDelete?.let { subject ->
+        AlertDialog(
+            onDismissRequest = { pendingDelete = null },
+            title = { Text("Fach vollständig löschen?") },
+            text = {
+                Text(
+                    "Alle zugehörigen Leistungen, offiziellen Noten, Lernphasen, Dokumente und Stundenplaneinträge werden entfernt."
+                )
+            },
+            confirmButton = {
+                TextButton({
+                    pendingDelete = null
+                    delete(subject.id)
+                }) {
+                    Text("Fach löschen")
+                }
+            },
+            dismissButton = { TextButton({ pendingDelete = null }) { Text("Abbrechen") } },
+        )
     }
 }
 

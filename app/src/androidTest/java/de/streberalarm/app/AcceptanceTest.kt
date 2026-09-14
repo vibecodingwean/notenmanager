@@ -1372,6 +1372,22 @@ class AcceptanceTest {
     }
 
     @Test
+    fun longPressingSubjectOffersConfirmedDeletion() {
+        ui.onNodeWithTag("nav-Meine Noten").performClick()
+        ui.onNodeWithTag("subject-${subject.id}").performTouchInput { longClick() }
+        ui.onNodeWithText("Löschen").assertExists().performClick()
+        ui.onNodeWithText("Fach vollständig löschen?").assertExists()
+        ui.onNodeWithText("Abbrechen").performClick()
+        assertTrue(runBlocking { repo.current().subjects.any { it.id == subject.id } })
+
+        ui.onNodeWithTag("subject-${subject.id}").performTouchInput { longClick() }
+        ui.onNodeWithText("Löschen").assertExists().performClick()
+        ui.onNodeWithText("Fach löschen").performClick()
+        ui.waitUntil(5000) { runBlocking { repo.current().subjects.none { it.id == subject.id } } }
+        ui.onNodeWithTag("subject-${subject.id}").assertDoesNotExist()
+    }
+
+    @Test
     fun settingsWheelDistinguishesProfilesAndKeepsTheirData() {
         val first = Profile(school = School.REALSCHULE, track = "I")
         val second = first.copy(id = id(), track = "II")
