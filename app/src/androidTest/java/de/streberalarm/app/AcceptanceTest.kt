@@ -73,8 +73,8 @@ class AcceptanceTest {
         runBlocking {
             repo.update { it.copy(profiles = listOf(p), subjects = subjects, assessments = grades) }
         }
-        ui.onNodeWithText("Dein nächster Schulweg").assertExists()
         ui.onNodeWithTag("nav-Meine Noten").performClick()
+        ui.onNodeWithText("Dein nächster Schulweg").assertExists()
         ui.onNodeWithTag("transfer-overview").assertExists()
         ui.onNodeWithTag("grade-overview").assertDoesNotExist()
         visible(ui.onNodeWithText("Übertrittsnoten eintragen")).performClick()
