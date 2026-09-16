@@ -47,7 +47,7 @@ fun QuickPlanForm(p: Profile, subjects: List<Subject>, save: (Assessment) -> Uni
             if (subjects.isEmpty()) Text("Lege zuerst unter Meine Noten ein Fach an.")
         } else {
             DateField("Datum", date) { date = it }
-            Pick("Was ist es?", kind.label, kinds(p).map { it.label }) { label ->
+            Pick("Was ist es?", kind.label, kinds(p).alphabetical().map { it.label }) { label ->
                 kind = kinds(p).first { it.label == label }
             }
             if (error.isNotEmpty()) Text(error, color = MaterialTheme.colorScheme.error)

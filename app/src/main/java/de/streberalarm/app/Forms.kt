@@ -248,7 +248,7 @@ fun ExamForm(
             ) { v ->
                 sid = subjects.first { it.name == v }.id
             }
-            Pick("Was ist es?", kind.label, kinds(p).map { it.label }) { v ->
+            Pick("Was ist es?", kind.label, kinds(p).alphabetical().map { it.label }) { v ->
                 kind = kinds(p).first { it.label == v }
             }
             DateField("Datum", date) { date = it }

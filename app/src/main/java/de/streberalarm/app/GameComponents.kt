@@ -71,3 +71,9 @@ fun List<de.streberalarm.core.Subject>.alphabetical(): List<de.streberalarm.core
     val collator = java.text.Collator.getInstance(java.util.Locale.GERMAN)
     return sortedWith { a, b -> collator.compare(a.name, b.name) }
 }
+
+@JvmName("kindsAlphabetical")
+fun List<de.streberalarm.core.Kind>.alphabetical(): List<de.streberalarm.core.Kind> {
+    val collator = java.text.Collator.getInstance(java.util.Locale.GERMAN)
+    return sortedWith { a, b -> collator.compare(a.label, b.label) }
+}

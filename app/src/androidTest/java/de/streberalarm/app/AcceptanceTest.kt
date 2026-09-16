@@ -952,6 +952,22 @@ class AcceptanceTest {
             ui.onNodeWithTag("wheel-option-$index").assertTextContains(name)
         }
         tap("Abbrechen")
+        openWheel("Was ist es?")
+        val expectedKinds =
+            listOf(
+                "Angesagter Test (§ 18 RSO)",
+                "Fachlicher Leistungstest",
+                "Kurzarbeit",
+                "Mündliche Note",
+                "Praktische Leistung",
+                "Schulaufgabe",
+                "Stegreifaufgabe",
+            )
+        for ((index, name) in expectedKinds.withIndex()) {
+            ui.onNodeWithTag("wheel-Was ist es?").performScrollToIndex(index)
+            ui.onNodeWithTag("wheel-option-$index").assertTextContains(name)
+        }
+        tap("Abbrechen")
         choose("Fach", "IT · Informationstechnologie")
         capture("lean-test-form")
         tap("Test speichern")
