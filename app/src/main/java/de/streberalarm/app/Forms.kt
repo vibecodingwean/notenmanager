@@ -39,6 +39,16 @@ fun ProfileForm(save: (Profile) -> Unit) {
                     grade = selectedGrade
                     track = Defaults.tracks(selectedSchool, selectedGrade).first()
                 }
+                Pick(
+                    "Deine Klasse",
+                    "$grade. Klasse",
+                    Defaults.grades(school).map { "$it. Klasse" },
+                ) {
+                    val selectedGrade = it.substringBefore('.').toInt()
+                    val tracks = Defaults.tracks(school, selectedGrade)
+                    grade = selectedGrade
+                    if (track !in tracks) track = tracks.first()
+                }
                 val tracks = Defaults.tracks(school, grade)
                 if (school != School.GRUNDSCHULE)
                     Pick(
@@ -48,6 +58,8 @@ fun ProfileForm(save: (Profile) -> Unit) {
                     ) { chosen ->
                         track = tracks.first { Defaults.trackLabel(school, it) == chosen }
                     }
+                if (school == School.REALSCHULE && grade < 7)
+                    Text("In Klasse 5 und 6 gibt es noch keinen Schulzweig.")
             }
             if (state != "Bayern")
                 Panel("Noch nicht unterstützt") {
@@ -62,19 +74,7 @@ fun ProfileForm(save: (Profile) -> Unit) {
             )
             Action("Weiter", { step = 1 }, state == "Bayern")
         } else {
-            Panel("Deine Klasse") {
-                Pick(
-                    "Deine Klasse",
-                    "$grade. Klasse",
-                    Defaults.grades(school).map { "$it. Klasse" },
-                ) {
-                    val selectedGrade = it.substringBefore('.').toInt()
-                    val tracks = Defaults.tracks(school, selectedGrade)
-                    grade = selectedGrade
-                    if (track !in tracks) track = tracks.first()
-                }
-                if (school == School.REALSCHULE && grade < 7)
-                    Text("In Klasse 5 und 6 gibt es noch keinen Schulzweig.")
+            Panel("Dein Schuljahr") {
                 Pick(
                     "Schuljahr",
                     "$year/${(year + 1) % 100}",

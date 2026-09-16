@@ -1316,8 +1316,6 @@ class AcceptanceTest {
         runBlocking { repo.update { SchoolData() } }
         ui.waitForIdle()
         choose("Schulart", "Realschule")
-        choose("Schulzweig", "II · Wirtschaft und Rechnungswesen")
-        tap("Weiter")
         openWheel("Deine Klasse")
         capture("class-wheel")
         ui.onNodeWithTag("wheel-Deine Klasse").performTouchInput { swipeUp(durationMillis = 500) }
@@ -1334,6 +1332,8 @@ class AcceptanceTest {
                 )
             )
         tap("Übernehmen")
+        choose("Schulzweig", "II · Wirtschaft und Rechnungswesen")
+        tap("Weiter")
         tap("Los geht’s")
         ui.waitUntil(5000) { runBlocking { repo.current().active()?.grade == 10 } }
         val data = runBlocking { repo.current() }
@@ -1355,10 +1355,9 @@ class AcceptanceTest {
         runBlocking { repo.update { SchoolData() } }
         ui.waitForIdle()
         choose("Schulart", "Realschule")
-        choose("Schulzweig", "II · Wirtschaft und Rechnungswesen")
-        tap("Weiter")
         choose("Deine Klasse", "5. Klasse")
         ui.onNodeWithText("In Klasse 5 und 6 gibt es noch keinen Schulzweig.").assertExists()
+        tap("Weiter")
         tap("Los geht’s")
         ui.waitUntil(5000) { runBlocking { repo.current().active() != null } }
 
