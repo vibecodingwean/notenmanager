@@ -1418,18 +1418,100 @@ class AcceptanceTest {
 
     @Test
     fun longPressingSubjectOffersConfirmedDeletion() {
+        val other = subject.copy(id = id(), name = "Deutsch")
+        val exams =
+            listOf(subject, other).map {
+                Assessment(subjectId = it.id, title = "Probe", date = "2026-10-01")
+            }
+        val studies = exams.map { Study(assessmentId = it.id, start = 1000, end = 61000) }
+        val officials =
+            listOf(subject, other).map { Official(subjectId = it.id, period = "Jahr", value = 2) }
+        val lessons =
+            listOf(subject, other).mapIndexed { index, s ->
+                Lesson(
+                    subjectId = s.id,
+                    day = 1,
+                    start = if (index == 0) "08:00" else "09:00",
+                    end = if (index == 0) "08:45" else "09:45",
+                    slot = index,
+                )
+            }
+        val exceptions =
+            listOf(subject, other).map {
+                ExceptionLesson(
+                    subjectId = it.id,
+                    date = "2026-10-02",
+                    start = "08:00",
+                    end = "08:45",
+                    cancelled = true,
+                )
+            }
+        val documents =
+            exams.map { exam ->
+                val file = File(repo.documentsDir, "${id()}.pdf")
+                val pdf = PdfDocument()
+                val page = pdf.startPage(PdfDocument.PageInfo.Builder(100, 100, 1).create())
+                pdf.finishPage(page)
+                file.outputStream().use { pdf.writeTo(it) }
+                pdf.close()
+                Document(
+                    assessmentId = exam.id,
+                    name = "Probe.pdf",
+                    mime = "application/pdf",
+                    file = file.name,
+                    size = file.length(),
+                )
+            }
+        runBlocking {
+            repo.update {
+                it.copy(
+                    subjects = listOf(subject, other),
+                    assessments = exams,
+                    studies = studies,
+                    officials = officials,
+                    documents = documents,
+                    exceptions = exceptions,
+                    timetables =
+                        listOf(
+                            Timetable(
+                                profileId = profile.id,
+                                validFrom = "2026-09-21",
+                                anchorMonday = "2026-09-21",
+                                blocks = lessons,
+                            )
+                        ),
+                )
+            }
+        }
+        val before = repo.state.value!!
         ui.onNodeWithTag("nav-Meine Noten").performClick()
-        ui.onNodeWithTag("subject-${subject.id}").performTouchInput { longClick() }
+        ui.onNodeWithTag("subject-${subject.id}").performScrollTo().performTouchInput {
+            longClick()
+        }
         ui.onNodeWithText("Löschen").assertExists().performClick()
         ui.onNodeWithText("Fach vollständig löschen?").assertExists()
         ui.onNodeWithText("Abbrechen").performClick()
-        assertTrue(runBlocking { repo.current().subjects.any { it.id == subject.id } })
+        assertEquals(before, runBlocking { repo.current() })
 
-        ui.onNodeWithTag("subject-${subject.id}").performTouchInput { longClick() }
+        ui.onNodeWithTag("subject-${subject.id}").performScrollTo().performTouchInput {
+            longClick()
+        }
         ui.onNodeWithText("Löschen").assertExists().performClick()
         ui.onNodeWithText("Fach löschen").performClick()
         ui.waitUntil(5000) { runBlocking { repo.current().subjects.none { it.id == subject.id } } }
         ui.onNodeWithTag("subject-${subject.id}").assertDoesNotExist()
+        val after = runBlocking { repo.current() }
+        assertEquals(listOf(other), after.subjects)
+        assertEquals(listOf(exams.last()), after.assessments)
+        assertEquals(listOf(studies.last()), after.studies)
+        assertEquals(listOf(officials.last()), after.officials)
+        assertEquals(listOf(documents.last()), after.documents)
+        assertEquals(listOf(exceptions.last()), after.exceptions)
+        assertEquals(listOf(lessons.last()), after.timetables.single().blocks)
+        assertFalse(File(repo.documentsDir, documents.first().file).exists())
+        assertTrue(File(repo.documentsDir, documents.last().file).exists())
+        ui.activityRule.scenario.recreate()
+        assertEquals(after, runBlocking { repo.current() })
     }
 
     @Test
