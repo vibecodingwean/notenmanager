@@ -49,9 +49,28 @@ class AppearanceTest {
     }
 
     @Test
+    fun vividLooksKeepControlsAndSelectionPanelsReadable() {
+        for (look in listOf(AppLook.IRIDESCENT, AppLook.BAYERN)) {
+            assertTrue(look.dark)
+            val c = lookScheme(look)
+            assertTrue(contrast(c.onPrimaryContainer, c.primaryContainer) >= 4.5)
+            assertTrue(contrast(c.onSurfaceVariant, c.surfaceVariant) >= 4.5)
+        }
+    }
+
+    @Test
     fun storedIdsStayStableAndUnknownValuesUseClassic() {
         assertEquals(
-            listOf("classic", "hacker", "social", "streamer", "orbit", "pixel"),
+            listOf(
+                "classic",
+                "hacker",
+                "social",
+                "streamer",
+                "orbit",
+                "pixel",
+                "iridescent",
+                "bayern",
+            ),
             AppLook.entries.map { it.id },
         )
         AppLook.entries.forEach { assertEquals(it, AppLook.fromId(it.id)) }

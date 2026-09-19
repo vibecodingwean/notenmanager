@@ -32,4 +32,16 @@
     <style name="PixelClockDialog" parent="PixelDateDialog">
         <item name="android:timePickerStyle">@style/WheelClockWidget</item>
     </style>
+    <style name="IridescentDateDialog" parent="android:style/Theme.Material.Dialog.Alert">
+        <item name="android:colorAccent">#8FF5ED</item>
+    </style>
+    <style name="IridescentClockDialog" parent="IridescentDateDialog">
+        <item name="android:timePickerStyle">@style/DarkWheelClockWidget</item>
+    </style>
+    <style name="BayernDateDialog" parent="android:style/Theme.Material.Dialog.Alert">
+        <item name="android:colorAccent">#FFBBC5</item>
+    </style>
+    <style name="BayernClockDialog" parent="BayernDateDialog">
+        <item name="android:timePickerStyle">@style/DarkWheelClockWidget</item>
+    </style>
 </resources>

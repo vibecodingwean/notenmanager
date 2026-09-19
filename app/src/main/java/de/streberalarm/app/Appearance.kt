@@ -54,7 +54,9 @@ enum class AppLook(val id: String, val title: String, val hint: String, val dark
     SOCIAL("social", "Social Glow", "Rosé & Pfirsich · schwebende Lichtblasen", false),
     STREAMER("streamer", "Streamer", "Neon & Violett · leuchtende Bahnen", true),
     ORBIT("orbit", "Orbit", "Nachtblau · ruhig ziehende Sterne", true),
-    PIXEL("pixel", "Pixelwelt", "Grasblöcke & Wolken · dein Bau-Abenteuer", false);
+    PIXEL("pixel", "Pixelwelt", "Grasblöcke & Wolken · dein Bau-Abenteuer", false),
+    IRIDESCENT("iridescent", "Farbfluss", "Neon, Chrom & flüssige Farben", true),
+    BAYERN("bayern", "FC Bayern", "Leuchtendes Rot · Arena bei Nacht", true);
 
     companion object {
         fun fromId(id: String?) = entries.firstOrNull { it.id == id } ?: CLASSIC
@@ -162,6 +164,30 @@ fun lookScheme(look: AppLook): ColorScheme =
                 outline = Color(0xFF79A36B),
                 outlineVariant = Color(0xFF355D2B),
             )
+        AppLook.IRIDESCENT,
+        AppLook.BAYERN -> {
+            val bayern = look == AppLook.BAYERN
+            darkColorScheme(
+                primary = if (bayern) Color(0xFFFFBBC5) else Color(0xFF8FF5ED),
+                onPrimary = if (bayern) Color(0xFF420011) else Color(0xFF062729),
+                secondary = if (bayern) Color(0xFFFFDDD8) else Color(0xFFFFB6F1),
+                onSecondary = Color(0xFF300D30),
+                background = if (bayern) Color(0xFF100609) else Color(0xFF08091A),
+                onBackground = Color(0xFFFFF5FC),
+                surface = if (bayern) Color(0xFF210F15) else Color(0xFF16152C),
+                onSurface = Color(0xFFFFF5FC),
+                surfaceVariant = if (bayern) Color(0xFF362027) else Color(0xFF2B2542),
+                onSurfaceVariant = Color(0xFFE1CEDD),
+                primaryContainer = if (bayern) Color(0xFF630D26) else Color(0xFF303257),
+                onPrimaryContainer = Color(0xFFFFF5FC),
+                secondaryContainer = Color(0xFF3F2544),
+                onSecondaryContainer = Color(0xFFFFDBF4),
+                tertiaryContainer = Color(0xFF193D4B),
+                onTertiaryContainer = Color(0xFFCEEEFF),
+                outline = Color(0xFFB99CAD),
+                outlineVariant = if (bayern) Color(0xFF773345) else Color(0xFF665184),
+            )
+        }
         else -> {
             val primary =
                 when (look) {
@@ -381,6 +407,17 @@ private fun LookBackdrop(appearance: Appearance, modifier: Modifier) {
             .clearAndSetSemantics {}
     ) {
         drawLook(appearance.look, phase.value, accent, matrix)
+        if (appearance.look == AppLook.IRIDESCENT || appearance.look == AppLook.BAYERN) {
+            // Keep unboxed labels readable, while retaining saturated color at the edges.
+            drawRect(
+                Brush.horizontalGradient(
+                    0f to Color.Black.copy(alpha = .45f),
+                    .07f to Color.Black.copy(alpha = .92f),
+                    .93f to Color.Black.copy(alpha = .92f),
+                    1f to Color.Black.copy(alpha = .45f),
+                )
+            )
+        }
     }
 }
 
@@ -556,6 +593,8 @@ private fun DrawScope.drawLook(look: AppLook, phase: Float, accent: Color, matri
     when (look) {
         AppLook.CLASSIC -> Unit
         AppLook.HACKER -> matrix.draw(this, phase)
+        AppLook.IRIDESCENT -> drawLiquid(phase)
+        AppLook.BAYERN -> drawArena(phase)
         AppLook.PIXEL -> {
             val block = 24.dp.toPx()
             repeat(5) { i ->

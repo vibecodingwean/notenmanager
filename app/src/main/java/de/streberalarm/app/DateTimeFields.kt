@@ -78,6 +78,8 @@ private fun dateDialogStyle(look: AppLook) =
         AppLook.STREAMER -> R.style.StreamerDateDialog
         AppLook.ORBIT -> R.style.OrbitDateDialog
         AppLook.PIXEL -> R.style.PixelDateDialog
+        AppLook.IRIDESCENT -> R.style.IridescentDateDialog
+        AppLook.BAYERN -> R.style.BayernDateDialog
     }
 
 private fun clockDialogStyle(look: AppLook) =
@@ -88,4 +90,6 @@ private fun clockDialogStyle(look: AppLook) =
         AppLook.STREAMER -> R.style.StreamerClockDialog
         AppLook.ORBIT -> R.style.OrbitClockDialog
         AppLook.PIXEL -> R.style.PixelClockDialog
+        AppLook.IRIDESCENT -> R.style.IridescentClockDialog
+        AppLook.BAYERN -> R.style.BayernClockDialog
     }

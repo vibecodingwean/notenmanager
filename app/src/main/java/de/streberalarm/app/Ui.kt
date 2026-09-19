@@ -44,18 +44,22 @@ fun Page(title: String, subtitle: String? = null, content: @Composable ColumnSco
         verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
         Spacer(Modifier.height(4.dp))
-        Text(
-            title,
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            color = Ink,
-        )
-        subtitle?.let {
+        if (LocalLook.current in listOf(AppLook.IRIDESCENT, AppLook.BAYERN)) {
+            VividPageHeading(title, subtitle)
+        } else {
             Text(
-                it,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                title,
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = Ink,
             )
+            subtitle?.let {
+                Text(
+                    it,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
         content()
         Spacer(Modifier.height(28.dp))
@@ -129,6 +133,8 @@ fun Action(text: String, onClick: () -> Unit, enabled: Boolean) {
             AppLook.STREAMER -> listOf(Color(0xFFDFB6FF), Color(0xFF79E7FA))
             AppLook.HACKER -> listOf(Color(0xFF71FF48), Color(0xFFA1FF70))
             AppLook.ORBIT -> listOf(Color(0xFFA1D9FF), Color(0xFFCCC2FF))
+            AppLook.IRIDESCENT -> listOf(Color(0xFF8FF5ED), Color(0xFFC6BAFF), Color(0xFFFFB6F1))
+            AppLook.BAYERN -> listOf(Color(0xFFAD0025), Color(0xFFD50935))
             else -> listOf(Green, Green)
         }
     Button(
@@ -144,7 +150,9 @@ fun Action(text: String, onClick: () -> Unit, enabled: Boolean) {
         shape = shape,
         colors =
             ButtonDefaults.buttonColors(
-                containerColor = if (look == AppLook.CLASSIC) Green else Color.Transparent
+                containerColor = if (look == AppLook.CLASSIC) Green else Color.Transparent,
+                contentColor =
+                    if (look == AppLook.BAYERN) Color.White else MaterialTheme.colorScheme.onPrimary,
             ),
         elevation =
             ButtonDefaults.buttonElevation(
