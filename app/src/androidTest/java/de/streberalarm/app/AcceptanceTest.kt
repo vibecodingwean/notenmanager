@@ -384,15 +384,15 @@ class AcceptanceTest {
         ui.onNodeWithText(label).assertTextContains(value)
     }
 
-    private fun openWheel(label: String) {
+    private fun openChoices(label: String) {
         ui.onNodeWithTag("picker-$label").performScrollTo().performClick()
         ui.waitForIdle()
     }
 
     private fun choose(label: String, value: String) {
-        openWheel(label)
-        ui.onNodeWithTag("wheel-$label").performScrollToNode(hasText(value))
-        ui.onNode(hasText(value) and hasAnyAncestor(hasTestTag("wheel-$label"))).performClick()
+        openChoices(label)
+        ui.onNodeWithTag("choices-$label").performScrollToNode(hasText(value))
+        ui.onNode(hasText(value) and hasAnyAncestor(hasTestTag("choices-$label"))).performClick()
         ui.waitForIdle()
         tap("Übernehmen")
     }
@@ -946,13 +946,13 @@ class AcceptanceTest {
         tap("Test hinzufügen")
         ui.onNodeWithText("Testname (freiwillig)").assertDoesNotExist()
         ui.onNodeWithText("Welche Note glaubst du?").assertDoesNotExist()
-        openWheel("Fach")
+        openChoices("Fach")
         for ((index, name) in expected.withIndex()) {
-            ui.onNodeWithTag("wheel-Fach").performScrollToIndex(index)
-            ui.onNodeWithTag("wheel-option-$index").assertTextContains(name)
+            ui.onNodeWithTag("choices-Fach").performScrollToIndex(index)
+            ui.onNodeWithTag("choice-option-$index").assertTextContains(name)
         }
         tap("Abbrechen")
-        openWheel("Was ist es?")
+        openChoices("Was ist es?")
         val expectedKinds =
             listOf(
                 "Angesagter Test (§ 18 RSO)",
@@ -964,8 +964,8 @@ class AcceptanceTest {
                 "Stegreifaufgabe",
             )
         for ((index, name) in expectedKinds.withIndex()) {
-            ui.onNodeWithTag("wheel-Was ist es?").performScrollToIndex(index)
-            ui.onNodeWithTag("wheel-option-$index").assertTextContains(name)
+            ui.onNodeWithTag("choices-Was ist es?").performScrollToIndex(index)
+            ui.onNodeWithTag("choice-option-$index").assertTextContains(name)
         }
         tap("Abbrechen")
         choose("Fach", "IT · Informationstechnologie")
@@ -974,10 +974,10 @@ class AcceptanceTest {
         ui.onNodeWithContentDescription("Zurück").performClick()
         openTimetable()
         tap("Stundenplan bearbeiten")
-        openWheel("Fach für Stunde 1")
+        openChoices("Fach für Stunde 1")
         for ((index, name) in (listOf("Noch frei") + expected + "Pause").withIndex()) {
-            ui.onNodeWithTag("wheel-Fach für Stunde 1").performScrollToIndex(index)
-            ui.onNodeWithTag("wheel-option-$index").assertTextContains(name)
+            ui.onNodeWithTag("choices-Fach für Stunde 1").performScrollToIndex(index)
+            ui.onNodeWithTag("choice-option-$index").assertTextContains(name)
         }
         tap("Abbrechen")
         choose("Fach für Stunde 1", "Deutsch")
@@ -1284,7 +1284,7 @@ class AcceptanceTest {
             .assertExists()
         choose("Fach für Stunde 1", "Mathematik")
         choose("Fach für Stunde 2", "Pause")
-        openWheel("Fach für Stunde 3")
+        openChoices("Fach für Stunde 3")
         tap("Fach hinzufügen")
         field("Wie heißt das Fach?", "Sachkunde")
         tap("Fach hinzufügen")
@@ -1328,19 +1328,49 @@ class AcceptanceTest {
     }
 
     @Test
-    fun wheelScrollCancelAndLabelledRealschuleProfilePersist() {
+    fun selectionMenusExposeRadioChoicesWithoutScrollSelection() {
+        runBlocking { repo.update { SchoolData() } }
+        ui.waitForIdle()
+        openChoices("Deine Klasse")
+        ui.onNodeWithTag("choices-Deine Klasse").assertExists()
+        val chosen = hasText("8. Klasse") and hasAnyAncestor(hasTestTag("choices-Deine Klasse"))
+        ui.onNode(chosen)
+            .assertIsSelected()
+            .assert(
+                SemanticsMatcher.expectValue(
+                    androidx.compose.ui.semantics.SemanticsProperties.Role,
+                    androidx.compose.ui.semantics.Role.RadioButton,
+                )
+            )
+        ui.onNodeWithTag("choices-Deine Klasse").performScrollToNode(hasText("10. Klasse"))
+        ui.onNode(hasText("10. Klasse") and hasAnyAncestor(hasTestTag("choices-Deine Klasse")))
+            .assertIsNotSelected()
+            .performClick()
+            .assertIsSelected()
+        ui.activityRule.scenario.recreate()
+        ui.onNodeWithTag("choices-Deine Klasse").performScrollToNode(hasText("10. Klasse"))
+        ui.onNode(hasText("10. Klasse") and hasAnyAncestor(hasTestTag("choices-Deine Klasse")))
+            .assertIsSelected()
+        tap("Abbrechen")
+        ui.onNodeWithTag("picker-Deine Klasse").assertTextContains("8. Klasse")
+        choose("Deine Klasse", "10. Klasse")
+        ui.onNodeWithTag("picker-Deine Klasse").assertTextContains("10. Klasse")
+    }
+
+    @Test
+    fun radioScrollCancelAndLabelledRealschuleProfilePersist() {
         runBlocking { repo.update { SchoolData() } }
         ui.waitForIdle()
         choose("Schulart", "Realschule")
-        openWheel("Deine Klasse")
-        capture("class-wheel")
-        ui.onNodeWithTag("wheel-Deine Klasse").performTouchInput { swipeUp(durationMillis = 500) }
+        openChoices("Deine Klasse")
+        capture("class-choices")
+        ui.onNodeWithTag("choices-Deine Klasse").performTouchInput { swipeUp(durationMillis = 500) }
         ui.waitForIdle()
         tap("Abbrechen")
         ui.onNodeWithTag("picker-Deine Klasse").assertTextContains("8. Klasse")
         choose("Deine Klasse", "10. Klasse")
-        openWheel("Deine Klasse")
-        ui.onNodeWithTag("wheel-Deine Klasse")
+        openChoices("Deine Klasse")
+        ui.onNodeWithTag("choices-Deine Klasse")
             .assert(
                 androidx.compose.ui.test.SemanticsMatcher.expectValue(
                     androidx.compose.ui.semantics.SemanticsProperties.StateDescription,
@@ -1403,7 +1433,7 @@ class AcceptanceTest {
     }
 
     @Test
-    fun settingsWheelDistinguishesProfilesAndKeepsTheirData() {
+    fun settingsChoicesDistinguishProfilesAndKeepTheirData() {
         val first = Profile(school = School.REALSCHULE, track = "I")
         val second = first.copy(id = id(), track = "II")
         val third = second.copy(id = id())
