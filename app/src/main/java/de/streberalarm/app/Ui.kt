@@ -44,7 +44,9 @@ fun Page(title: String, subtitle: String? = null, content: @Composable ColumnSco
         verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
         Spacer(Modifier.height(4.dp))
-        if (LocalLook.current in listOf(AppLook.IRIDESCENT, AppLook.BAYERN)) {
+        if (LocalLook.current.isYouth) {
+            YouthPageHeading(title, subtitle)
+        } else if (LocalLook.current == AppLook.BAYERN) {
             VividPageHeading(title, subtitle)
         } else {
             Text(
@@ -78,6 +80,7 @@ fun Panel(title: String? = null, content: @Composable ColumnScope.() -> Unit) {
                 contentColor = Ink,
             ),
     ) {
+        if (LocalLook.current.isYouth) YouthRibbon(LocalLook.current)
         Column(
             Modifier.padding(18.dp)
                 .then(
@@ -133,7 +136,6 @@ fun Action(text: String, onClick: () -> Unit, enabled: Boolean) {
             AppLook.STREAMER -> listOf(Color(0xFFDFB6FF), Color(0xFF79E7FA))
             AppLook.HACKER -> listOf(Color(0xFF71FF48), Color(0xFFA1FF70))
             AppLook.ORBIT -> listOf(Color(0xFFA1D9FF), Color(0xFFCCC2FF))
-            AppLook.IRIDESCENT -> listOf(Color(0xFF8FF5ED), Color(0xFFC6BAFF), Color(0xFFFFB6F1))
             AppLook.BAYERN -> listOf(Color(0xFFAD0025), Color(0xFFD50935))
             else -> listOf(Green, Green)
         }
@@ -149,11 +151,11 @@ fun Action(text: String, onClick: () -> Unit, enabled: Boolean) {
         enabled = enabled,
         shape = shape,
         colors =
-            ButtonDefaults.buttonColors(
+            actionButtonColors(look, ButtonDefaults.buttonColors(
                 containerColor = if (look == AppLook.CLASSIC) Green else Color.Transparent,
                 contentColor =
                     if (look == AppLook.BAYERN) Color.White else MaterialTheme.colorScheme.onPrimary,
-            ),
+            )),
         elevation =
             ButtonDefaults.buttonElevation(
                 defaultElevation = if (look == AppLook.CLASSIC) 3.dp else 0.dp,
@@ -167,7 +169,7 @@ fun Action(text: String, onClick: () -> Unit, enabled: Boolean) {
 @Composable
 fun Source(url: String) {
     val uri = LocalUriHandler.current
-    TextButton({ uri.openUri(url) }) { Text("Quelle: ${url.substringAfterLast('/')} ↗") }
+    TextButton({ uri.openUri(url) }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) { Text("Quelle: ${url.substringAfterLast('/')} ↗") }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -546,7 +548,7 @@ fun TodayPage(
                 }
                 if (running.boot != a.repo.boot())
                     Text("Gerät neu gestartet: Bitte die Lernzeit nach dem Stoppen prüfen.")
-                TextButton({ exam(running.assessmentId) }) { Text("Zur Lernkarte") }
+                TextButton({ exam(running.assessmentId) }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) { Text("Zur Lernkarte") }
             }
         EstimatePrompts.due(d, SchoolZonedTime.fromEpochMillis(now, ZoneId.systemDefault().id))
             .firstOrNull()
@@ -571,8 +573,7 @@ fun TodayPage(
             shape =
                 if (LocalLook.current == AppLook.HACKER || LocalLook.current == AppLook.PIXEL)
                     lookShape(0.dp)
-                else ButtonDefaults.outlinedShape,
-        ) {
+                else ButtonDefaults.outlinedShape, colors = bayernButtonColors(ButtonDefaults.outlinedButtonColors())) {
             Icon(Icons.Outlined.Add, null)
             Text("Probe planen")
         }
@@ -611,10 +612,10 @@ fun TodayPage(
                     }
                 }
             }
-            TextButton(timetable) { Text("Stundenplan") }
+            TextButton(timetable, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) { Text("Stundenplan") }
         }
         if (!ReminderScheduler.allowed(a))
-            TextButton({ a.requestNotifications() }) { Text("Lernerinnerungen einschalten") }
+            TextButton({ a.requestNotifications() }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) { Text("Lernerinnerungen einschalten") }
     }
 }
 
@@ -737,8 +738,8 @@ fun SubjectsPage(
         HelpPanel("Was bedeuten die Farben?") {
             Text(
                 if (p.school == School.GRUNDSCHULE)
-                    "Violett: Übertrittsfach (Deutsch, Mathematik, HSU)"
-                else "Violett: Haupt-/Kernfach"
+                    if (LocalLook.current == AppLook.BAYERN) "Rot: Übertrittsfach (Deutsch, Mathematik, HSU)" else "Violett: Übertrittsfach (Deutsch, Mathematik, HSU)"
+                else if (LocalLook.current == AppLook.BAYERN) "Rot: Haupt-/Kernfach" else "Violett: Haupt-/Kernfach"
             )
             if (p.school != School.GRUNDSCHULE)
                 Text(
@@ -746,7 +747,7 @@ fun SubjectsPage(
                 )
             Text("Grau: weiteres Fach – kein Vorrückungsfach.")
             Text(
-                "Ist ein Fach beides, bleibt es violett. Die Farben folgen der Einordnung im Fach und bewerten keine Noten."
+                if (LocalLook.current == AppLook.BAYERN) "Ist ein Fach beides, bleibt es rot. Die Farben folgen der Einordnung im Fach und bewerten keine Noten." else "Ist ein Fach beides, bleibt es violett. Die Farben folgen der Einordnung im Fach und bewerten keine Noten."
             )
         }
     }
@@ -758,11 +759,11 @@ fun SubjectsPage(
                 TextButton({
                     subjectMenu = null
                     pendingDelete = subject
-                }) {
-                    Text("Löschen", color = MaterialTheme.colorScheme.error)
+                }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) {
+                    Text("Löschen", color = if (LocalLook.current == AppLook.BAYERN) Color.White else MaterialTheme.colorScheme.error)
                 }
             },
-            dismissButton = { TextButton({ subjectMenu = null }) { Text("Abbrechen") } },
+            dismissButton = { TextButton({ subjectMenu = null }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) { Text("Abbrechen") } },
         )
     }
     pendingDelete?.let { subject ->
@@ -778,11 +779,11 @@ fun SubjectsPage(
                 TextButton({
                     pendingDelete = null
                     delete(subject.id)
-                }) {
+                }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) {
                     Text("Fach löschen")
                 }
             },
-            dismissButton = { TextButton({ pendingDelete = null }) { Text("Abbrechen") } },
+            dismissButton = { TextButton({ pendingDelete = null }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) { Text("Abbrechen") } },
         )
     }
 }
@@ -817,8 +818,8 @@ fun SubjectPage(
             }
         }
         Action("Test oder Note hinzufügen", add)
-        OutlinedButton(edit, Modifier.fillMaxWidth()) { Text("Fach und Gewichtungen bearbeiten") }
-        OutlinedButton(official, Modifier.fillMaxWidth()) { Text("Offizielle Note eintragen") }
+        OutlinedButton(edit, Modifier.fillMaxWidth(), colors = bayernButtonColors(ButtonDefaults.outlinedButtonColors())) { Text("Fach und Gewichtungen bearbeiten") }
+        OutlinedButton(official, Modifier.fillMaxWidth(), colors = bayernButtonColors(ButtonDefaults.outlinedButtonColors())) { Text("Offizielle Note eintragen") }
         d.officials
             .filter { it.subjectId == s.id }
             .forEach { Text("${it.period}: ${it.value ?: "unbekannt"}") }
@@ -876,13 +877,13 @@ fun ExamPage(
     Page("Deine Probe") {
         ProbeCard(a, d, e, grade, estimate)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            TextButton(edit) {
+            TextButton(edit, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) {
                 Icon(Icons.Outlined.Edit, null, Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
                 Text("Test bearbeiten")
             }
-            TextButton({ confirm = true }) {
-                Text("Löschen", color = MaterialTheme.colorScheme.error)
+            TextButton({ confirm = true }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) {
+                Text("Löschen", color = if (LocalLook.current == AppLook.BAYERN) Color.White else MaterialTheme.colorScheme.error)
             }
         }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -897,7 +898,7 @@ fun ExamPage(
         if (section == "Lernstoff")
             Panel {
                 Text(e.learningNotes.ifBlank { "Was kommt dran? Ergänze deinen Lernstoff." })
-                TextButton({ editMaterial = true }) {
+                TextButton({ editMaterial = true }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) {
                     Text(
                         if (e.learningNotes.isBlank()) "Lernstoff ergänzen" else "Lernstoff ändern"
                     )
@@ -916,19 +917,19 @@ fun ExamPage(
                         if (s.correction.isNotBlank())
                             Text(s.correction, style = MaterialTheme.typography.bodySmall)
                         if (s.end != null)
-                            TextButton({ correction = s }) { Text("Lernzeit ändern") }
+                            TextButton({ correction = s }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) { Text("Lernzeit ändern") }
                     }
             }
         if (section == "Unterlagen")
             Panel {
                 AssessmentScannerButton(a, e.id, "Arbeit scannen", scan)
-                OutlinedButton({ a.import(e.id) }, Modifier.fillMaxWidth()) {
+                OutlinedButton({ a.import(e.id) }, Modifier.fillMaxWidth(), colors = bayernButtonColors(ButtonDefaults.outlinedButtonColors())) {
                     Text("Bild oder PDF hinzufügen")
                 }
                 d.documents
                     .filter { it.assessmentId == e.id }
                     .forEach { doc ->
-                        TextButton({ document(doc.id) }) {
+                        TextButton({ document(doc.id) }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) {
                             Icon(Icons.Outlined.Description, null)
                             Spacer(Modifier.width(8.dp))
                             Text(doc.name)
@@ -956,11 +957,11 @@ fun ExamPage(
                         }
                     }
                     editMaterial = false
-                }) {
+                }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) {
                     Text("Lernstoff speichern")
                 }
             },
-            dismissButton = { TextButton({ editMaterial = false }) { Text("Abbrechen") } },
+            dismissButton = { TextButton({ editMaterial = false }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) { Text("Abbrechen") } },
         )
     }
     if (confirm)
@@ -974,11 +975,11 @@ fun ExamPage(
                 TextButton({
                     confirm = false
                     delete()
-                }) {
+                }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) {
                     Text("Löschen")
                 }
             },
-            dismissButton = { TextButton({ confirm = false }) { Text("Abbrechen") } },
+            dismissButton = { TextButton({ confirm = false }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) { Text("Abbrechen") } },
         )
     correction?.let { s ->
         var minutes by remember { mutableStateOf((s.seconds(now) / 60).toString()) }
@@ -1012,12 +1013,11 @@ fun ExamPage(
                         }
                         correction = null
                     },
-                    enabled = minutes.toIntOrNull() in 0..10080 && reason.isNotBlank(),
-                ) {
+                    enabled = minutes.toIntOrNull() in 0..10080 && reason.isNotBlank(), colors = bayernButtonColors(ButtonDefaults.textButtonColors())) {
                     Text("Speichern")
                 }
             },
-            dismissButton = { TextButton({ correction = null }) { Text("Abbrechen") } },
+            dismissButton = { TextButton({ correction = null }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) { Text("Abbrechen") } },
         )
     }
 }
@@ -1109,10 +1109,10 @@ fun TimetablePage(
         }
         Action("Stundenplan bearbeiten", { edit(day) })
         HelpPanel("Ferien, Ausfälle und ältere Pläne") {
-            OutlinedButton(dayOff, Modifier.fillMaxWidth()) {
+            OutlinedButton(dayOff, Modifier.fillMaxWidth(), colors = bayernButtonColors(ButtonDefaults.outlinedButtonColors())) {
                 Text("Ferien / freien Tag hinzufügen")
             }
-            OutlinedButton(exception, Modifier.fillMaxWidth()) {
+            OutlinedButton(exception, Modifier.fillMaxWidth(), colors = bayernButtonColors(ButtonDefaults.outlinedButtonColors())) {
                 Text("Ausfall / Zusatzunterricht")
             }
             if (tables.isNotEmpty())
@@ -1127,7 +1127,7 @@ fun TimetablePage(
                 .sortedBy { it.from }
                 .forEach { o ->
                     Text("${o.reason}: ${dateLabel(o.from)} bis ${dateLabel(o.to)}")
-                    TextButton({ delete(o.id) }) { Text("Entfernen") }
+                    TextButton({ delete(o.id) }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) { Text("Entfernen") }
                 }
             d.exceptions
                 .filter { e -> d.subjects.any { it.id == e.subjectId && it.profileId == p.id } }
@@ -1135,7 +1135,7 @@ fun TimetablePage(
                     Text(
                         "${if (e.cancelled) "Ausfall" else "Zusatzstunde"}: ${dateLabel(e.date)} · ${e.start}–${e.end}"
                     )
-                    TextButton({ delete(e.id) }) { Text("Entfernen") }
+                    TextButton({ delete(e.id) }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) { Text("Entfernen") }
                 }
             Source("https://www.km.bayern.de/termine/ferien-und-feiertage")
         }
@@ -1187,7 +1187,7 @@ fun SettingsPage(
                 else "Ungefähre Zustellung – Android kann Hinweise verzögern."
             )
             Action("Benachrichtigungen einstellen") { a.requestNotifications() }
-            OutlinedButton({ a.requestExact() }, Modifier.fillMaxWidth()) {
+            OutlinedButton({ a.requestExact() }, Modifier.fillMaxWidth(), colors = bayernButtonColors(ButtonDefaults.outlinedButtonColors())) {
                 Text("Pünktliche Erinnerungen erlauben")
             }
             Text(
@@ -1208,13 +1208,12 @@ fun SettingsPage(
                     password = ""
                     confirmed = false
                 },
-                Modifier.fillMaxWidth(),
-            ) {
+                Modifier.fillMaxWidth(), colors = bayernButtonColors(ButtonDefaults.outlinedButtonColors())) {
                 Text("Backup wiederherstellen")
             }
         }
-        OutlinedButton(timetable, Modifier.fillMaxWidth()) { Text("Stundenplan bearbeiten") }
-        OutlinedButton(rules, Modifier.fillMaxWidth()) { Text("Rechtsgrundlagen und Regelprüfung") }
+        OutlinedButton(timetable, Modifier.fillMaxWidth(), colors = bayernButtonColors(ButtonDefaults.outlinedButtonColors())) { Text("Stundenplan bearbeiten") }
+        OutlinedButton(rules, Modifier.fillMaxWidth(), colors = bayernButtonColors(ButtonDefaults.outlinedButtonColors())) { Text("Rechtsgrundlagen und Regelprüfung") }
         HelpPanel("Wer kann meine Daten sehen?") {
             Text(
                 "StreberAlarm speichert Profile, Noten, Lernzeiten und Dokumente lokal im privaten App-Speicher. Kein Konto, keine Werbung, keine eigene App-Analyse, keine Cloud-KI. Automatische Android-Cloud-Sicherungen und Geräteübertragung sind deaktiviert."
@@ -1264,8 +1263,7 @@ fun SettingsPage(
                         if (mode == "export") a.export(value) else a.restore(value)
                         mode = ""
                     },
-                    enabled = password.length >= 8 && (mode == "export" || confirmed),
-                ) {
+                    enabled = password.length >= 8 && (mode == "export" || confirmed), colors = bayernButtonColors(ButtonDefaults.textButtonColors())) {
                     Text("Datei auswählen")
                 }
             },
@@ -1273,7 +1271,7 @@ fun SettingsPage(
                 TextButton({
                     mode = ""
                     password = ""
-                }) {
+                }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) {
                     Text("Abbrechen")
                 }
             },

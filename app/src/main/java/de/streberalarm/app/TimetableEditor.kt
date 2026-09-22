@@ -275,18 +275,18 @@ fun TimetableForm(
                             TextButton({
                                 rows = rows.filterNot { it.id == row.id }
                                 timeFor = null
-                            }) {
+                            }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) {
                                 Text("Stunde entfernen")
                             }
                     }
             }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton({ append(1) }, Modifier.weight(1f)) {
+            OutlinedButton({ append(1) }, Modifier.weight(1f), colors = bayernButtonColors(ButtonDefaults.outlinedButtonColors())) {
                 Icon(Icons.Outlined.Add, null)
                 Text("Stunde")
             }
-            OutlinedButton({ append(2) }, Modifier.weight(1f)) {
+            OutlinedButton({ append(2) }, Modifier.weight(1f), colors = bayernButtonColors(ButtonDefaults.outlinedButtonColors())) {
                 Icon(Icons.Outlined.Add, null)
                 Text("Doppelstunde")
             }
@@ -362,12 +362,11 @@ fun TimetableForm(
                         }
                         newFor = null
                     },
-                    enabled = newName.isNotBlank(),
-                ) {
+                    enabled = newName.isNotBlank(), colors = bayernButtonColors(ButtonDefaults.textButtonColors())) {
                     Text("Fach hinzufügen")
                 }
             },
-            dismissButton = { TextButton({ newFor = null }) { Text("Abbrechen") } },
+            dismissButton = { TextButton({ newFor = null }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) { Text("Abbrechen") } },
         )
     }
 }

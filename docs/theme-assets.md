@@ -1,6 +1,6 @@
 # Theme artwork
 
-Farbfluss and the red stadium background are original, procedural Canvas artwork.
+The red stadium background is original, procedural Canvas artwork.
 
 `app/src/main/res/drawable/fc_bayern.xml` is a vector conversion of the FC Bayern
 München 2024 crest, sourced from:

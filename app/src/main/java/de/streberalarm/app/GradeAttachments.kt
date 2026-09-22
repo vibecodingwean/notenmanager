@@ -34,13 +34,12 @@ fun AssessmentScannerButton(a: MainActivity, examId: String, label: String, scan
                             scannerChoice = false
                             googleNotice = true
                         },
-                        Modifier.fillMaxWidth(),
-                    ) {
+                        Modifier.fillMaxWidth(), colors = bayernButtonColors(ButtonDefaults.outlinedButtonColors())) {
                         Text("Google ML Kit")
                     }
                 }
             },
-            confirmButton = { TextButton({ scannerChoice = false }) { Text("Abbrechen") } },
+            confirmButton = { TextButton({ scannerChoice = false }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) { Text("Abbrechen") } },
         )
     if (googleNotice)
         AlertDialog(
@@ -61,7 +60,7 @@ fun AssessmentScannerButton(a: MainActivity, examId: String, label: String, scan
                 TextButton({
                     googleNotice = false
                     a.scanGoogle(examId)
-                }) {
+                }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) {
                     Text("Google-Scanner starten")
                 }
             },
@@ -69,7 +68,7 @@ fun AssessmentScannerButton(a: MainActivity, examId: String, label: String, scan
                 TextButton({
                     googleNotice = false
                     scannerChoice = true
-                }) {
+                }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) {
                     Text("Zur Scanner-Auswahl")
                 }
             },
@@ -80,7 +79,7 @@ fun AssessmentScannerButton(a: MainActivity, examId: String, label: String, scan
 fun GradeAttachments(a: MainActivity, d: SchoolData, e: Assessment) {
     var scanning by rememberSaveable(e.id) { mutableStateOf(false) }
     AssessmentScannerButton(a, e.id, "Probe fotografieren") { scanning = true }
-    TextButton({ a.import(e.id) }) { Text("Bild oder PDF hinzufügen") }
+    TextButton({ a.import(e.id) }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) { Text("Bild oder PDF hinzufügen") }
     val count = d.documents.count { it.assessmentId == e.id }
     if (count > 0)
         Text(
@@ -96,7 +95,7 @@ fun GradeAttachments(a: MainActivity, d: SchoolData, e: Assessment) {
             // Keep the grade form mounted behind the camera: its unsaved choice survives the scan.
             Surface(Modifier.fillMaxSize()) {
                 Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
-                    TextButton({ scanning = false }) {
+                    TextButton({ scanning = false }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) {
                         Icon(Icons.AutoMirrored.Outlined.ArrowBack, null)
                         Spacer(Modifier.width(8.dp))
                         Text("Zurück zur Note")

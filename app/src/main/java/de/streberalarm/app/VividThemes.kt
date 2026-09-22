@@ -1,5 +1,6 @@
 package de.streberalarm.app
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
@@ -20,72 +21,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlin.math.PI
 import kotlin.math.sin
-
-/** Wide liquid ribbons with narrow chrome highlights, drawn locally at any resolution. */
-internal fun DrawScope.drawLiquid(phase: Float) {
-    val w = size.width
-    val h = size.height
-    drawRect(Color(0xFF090720))
-    val drift = sin(phase * 2 * PI).toFloat()
-    for (i in -2..7) {
-        val y = h * (i / 6f)
-        val bend = sin(i * 1.9f + phase * 2 * PI).toFloat()
-        val path =
-            Path().apply {
-                moveTo(-w * .2f, y)
-                cubicTo(
-                    w * .15f,
-                    y - h * (.45f + bend * .08f),
-                    w * .42f,
-                    y + h * (.65f + drift * .06f),
-                    w * .65f,
-                    y + h * .14f,
-                )
-                cubicTo(w * .9f, y - h * .42f, w * .96f, y + h * .05f, w * 1.2f, y - h * .16f)
-            }
-        val palette =
-            if (i % 2 == 0)
-                listOf(
-                    Color(0xFF17104E),
-                    Color(0xFF2455FF),
-                    Color(0xFF04E7FF),
-                    Color(0xFFCDFFFF),
-                    Color(0xFFB916ED),
-                    Color(0xFFFF28BD),
-                    Color(0xFFFFEA57),
-                )
-            else
-                listOf(
-                    Color(0xFFFFD529),
-                    Color(0xFFFF4098),
-                    Color(0xFFC81CE8),
-                    Color(0xFF362AFF),
-                    Color(0xFF0CF0EB),
-                    Color(0xFF73FF68),
-                    Color(0xFF17104E),
-                )
-        drawPath(path, Color(0xFF02030E), style = Stroke(h * .22f))
-        drawPath(
-            path,
-            Brush.linearGradient(palette, Offset(0f, y - h * .18f), Offset(w, y + h * .2f)),
-            style = Stroke(h * .18f),
-        )
-        drawPath(
-            path,
-            Brush.linearGradient(
-                listOf(
-                    Color.White.copy(alpha = .75f),
-                    Color(0xFF81EEFF),
-                    Color.Transparent,
-                    Color(0xFFFFD8F6),
-                ),
-                Offset.Zero,
-                Offset(w, h),
-            ),
-            style = Stroke(h * .013f),
-        )
-    }
-}
 
 /** Faceted, glowing stadium cushions and angled light bars; no photographic background. */
 internal fun DrawScope.drawArena(phase: Float) {
@@ -129,10 +64,10 @@ internal fun DrawScope.drawArena(phase: Float) {
 
 @Composable
 internal fun VividPageHeading(title: String, subtitle: String?) {
-    val look = LocalLook.current
+    val scheme = MaterialTheme.colorScheme
     Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).testTag("vivid-heading")) {
         Canvas(Modifier.matchParentSize().clearAndSetSemantics {}) {
-            if (look == AppLook.BAYERN) drawArena(.2f) else drawLiquid(.2f)
+            drawArena(.2f)
         }
         Column(
             Modifier.fillMaxWidth().padding(16.dp),
@@ -143,35 +78,38 @@ internal fun VividPageHeading(title: String, subtitle: String?) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Surface(color = Color(0xFF100B19), shape = RoundedCornerShape(8.dp)) {
+                Surface(color = scheme.onSecondary, shape = RoundedCornerShape(8.dp)) {
                     Text(
-                        if (look == AppLook.BAYERN) "FC BAYERN" else "FARBFLUSS",
+                        "FC BAYERN",
                         Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
                         color = Color.White,
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.ExtraBold,
                     )
                 }
-                if (look == AppLook.BAYERN)
-                    Image(
-                        painterResource(R.drawable.fc_bayern),
-                        "FC Bayern München",
-                        Modifier.size(48.dp),
-                    )
-                else Spacer(Modifier.height(48.dp))
+                Image(
+                    painterResource(R.drawable.fc_bayern),
+                    "FC Bayern München",
+                    Modifier.size(48.dp),
+                )
             }
-            Surface(color = Color(0xFF100B19), shape = RoundedCornerShape(12.dp)) {
+            Surface(
+                color = scheme.primaryContainer,
+                contentColor = scheme.onPrimaryContainer,
+                border = BorderStroke(1.dp, scheme.onPrimaryContainer),
+                shape = RoundedCornerShape(12.dp),
+            ) {
                 Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
                     Text(
                         title,
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White,
+                        color = scheme.onPrimaryContainer,
                     )
                     if (subtitle != null)
                         Text(
                             subtitle,
-                            color = Color(0xFFE1CEDD),
+                            color = scheme.onPrimaryContainer,
                             style = MaterialTheme.typography.bodyMedium,
                         )
                 }

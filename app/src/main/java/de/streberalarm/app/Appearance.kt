@@ -55,8 +55,12 @@ enum class AppLook(val id: String, val title: String, val hint: String, val dark
     STREAMER("streamer", "Streamer", "Neon & Violett · leuchtende Bahnen", true),
     ORBIT("orbit", "Orbit", "Nachtblau · ruhig ziehende Sterne", true),
     PIXEL("pixel", "Pixelwelt", "Grasblöcke & Wolken · dein Bau-Abenteuer", false),
-    IRIDESCENT("iridescent", "Farbfluss", "Neon, Chrom & flüssige Farben", true),
-    BAYERN("bayern", "FC Bayern", "Leuchtendes Rot · Arena bei Nacht", true);
+    BAYERN("bayern", "FC Bayern", "Leuchtendes Rot · Arena bei Nacht", true),
+    STREET_ART("streetart", "STREET ART", "Creme & Neonorange · Graffiti", false),
+    BUBBLEGUM("bubblegum", "BUBBLEGUM", "Pink & Eisblau · Sticker", false),
+    SPEED("speed", "SPEED", "Anthrazit & Limette · Racing", true);
+
+    val isYouth: Boolean get() = this == STREET_ART || this == BUBBLEGUM || this == SPEED
 
     companion object {
         fun fromId(id: String?) = entries.firstOrNull { it.id == id } ?: CLASSIC
@@ -87,10 +91,13 @@ class AppearancePreferences(context: Context) {
     }
 }
 
+internal val LocalLookAnimations = staticCompositionLocalOf { true }
+
 val LocalLook = staticCompositionLocalOf { AppLook.CLASSIC }
 
 fun lookScheme(look: AppLook): ColorScheme =
     when (look) {
+        AppLook.STREET_ART, AppLook.BUBBLEGUM, AppLook.SPEED -> youthScheme(look)
         AppLook.CLASSIC ->
             lightColorScheme(
                 primary = Color(0xFF3653BD),
@@ -164,30 +171,29 @@ fun lookScheme(look: AppLook): ColorScheme =
                 outline = Color(0xFF79A36B),
                 outlineVariant = Color(0xFF355D2B),
             )
-        AppLook.IRIDESCENT,
-        AppLook.BAYERN -> {
-            val bayern = look == AppLook.BAYERN
-            darkColorScheme(
-                primary = if (bayern) Color(0xFFFFBBC5) else Color(0xFF8FF5ED),
-                onPrimary = if (bayern) Color(0xFF420011) else Color(0xFF062729),
-                secondary = if (bayern) Color(0xFFFFDDD8) else Color(0xFFFFB6F1),
-                onSecondary = Color(0xFF300D30),
-                background = if (bayern) Color(0xFF100609) else Color(0xFF08091A),
-                onBackground = Color(0xFFFFF5FC),
-                surface = if (bayern) Color(0xFF210F15) else Color(0xFF16152C),
-                onSurface = Color(0xFFFFF5FC),
-                surfaceVariant = if (bayern) Color(0xFF362027) else Color(0xFF2B2542),
-                onSurfaceVariant = Color(0xFFE1CEDD),
-                primaryContainer = if (bayern) Color(0xFF630D26) else Color(0xFF303257),
-                onPrimaryContainer = Color(0xFFFFF5FC),
-                secondaryContainer = Color(0xFF3F2544),
-                onSecondaryContainer = Color(0xFFFFDBF4),
-                tertiaryContainer = Color(0xFF193D4B),
-                onTertiaryContainer = Color(0xFFCEEEFF),
-                outline = Color(0xFFB99CAD),
-                outlineVariant = if (bayern) Color(0xFF773345) else Color(0xFF665184),
-            )
-        }
+        // Explicit roles prevent Material defaults from leaking purple into this look.
+        AppLook.BAYERN -> darkColorScheme(
+            primary = Color(0xFFE32B36), onPrimary = Color.White,
+            primaryContainer = Color.White, onPrimaryContainer = Color(0xFFB51225),
+            secondary = Color(0xFF8BC5FF), onSecondary = Color(0xFF002C54),
+            secondaryContainer = Color(0xFF003B70), onSecondaryContainer = Color.White,
+            tertiary = Color(0xFF8BC5FF), onTertiary = Color(0xFF002C54),
+            tertiaryContainer = Color(0xFF003B70), onTertiaryContainer = Color.White,
+            background = Color.Black, onBackground = Color.White,
+            surface = Color.Black, onSurface = Color.White,
+            surfaceVariant = Color(0xFF080808), onSurfaceVariant = Color(0xFFD4E4F4),
+            surfaceTint = Color(0xFF8BC5FF),
+            inverseSurface = Color.White, inverseOnSurface = Color(0xFF101820),
+            inversePrimary = Color(0xFFB51225),
+            error = Color(0xFFFFB4AB), onError = Color(0xFF690005),
+            errorContainer = Color(0xFF93000A), onErrorContainer = Color.White,
+            outline = Color(0xFF8BC5FF), outlineVariant = Color(0xFF6485A6),
+            scrim = Color.Black,
+            surfaceDim = Color.Black, surfaceBright = Color(0xFF080808),
+            surfaceContainerLowest = Color.Black, surfaceContainerLow = Color(0xFF020202),
+            surfaceContainer = Color(0xFF040404), surfaceContainerHigh = Color(0xFF060606),
+            surfaceContainerHighest = Color(0xFF080808),
+        )
         else -> {
             val primary =
                 when (look) {
@@ -232,7 +238,13 @@ fun lookScheme(look: AppLook): ColorScheme =
     }
 
 fun categoryTint(subject: Subject?, look: AppLook): Color =
-    if (!look.dark) subjectTint(subject)
+    if (look == AppLook.BAYERN)
+        when {
+            subject?.core == true -> Color(0xFF100000)
+            subject?.promotion == true -> Color(0xFF000510)
+            else -> Color(0xFF050505)
+        }
+    else if (!look.dark) subjectTint(subject)
     else
         when {
             subject?.core == true -> Color(0xFF342749)
@@ -254,6 +266,9 @@ fun lookShape(radius: Dp): CornerBasedShape =
     when (LocalLook.current) {
         AppLook.HACKER,
         AppLook.PIXEL -> RoundedCornerShape(0.dp)
+        AppLook.STREET_ART -> CutCornerShape(topEnd = 8.dp, bottomStart = 8.dp)
+        AppLook.BUBBLEGUM -> RoundedCornerShape(radius + 8.dp)
+        AppLook.SPEED -> CutCornerShape(topStart = 14.dp, bottomEnd = 14.dp)
         AppLook.STREAMER -> CutCornerShape(topStart = radius / 2, bottomEnd = radius / 2)
         else -> RoundedCornerShape(radius)
     }
@@ -289,7 +304,10 @@ fun AppearanceTheme(activity: MainActivity, content: @Composable () -> Unit) {
     val heading =
         if (appearance.look in listOf(AppLook.HACKER, AppLook.PIXEL)) FontFamily.Monospace
         else FontFamily.Default
-    CompositionLocalProvider(LocalLook provides appearance.look) {
+    CompositionLocalProvider(
+        LocalLook provides appearance.look,
+        LocalLookAnimations provides (appearance.animations && !appearance.look.isYouth),
+    ) {
         MaterialTheme(
             colorScheme = scheme,
             shapes =
@@ -351,7 +369,7 @@ fun AppearanceTheme(activity: MainActivity, content: @Composable () -> Unit) {
  * Only decoration animates. No position, hit target, learning duration or saved data depends on it.
  */
 @Composable
-private fun LookBackdrop(appearance: Appearance, modifier: Modifier) {
+internal fun lookMotionAllowed(enabled: Boolean): Boolean {
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     fun systemAllowsMotion() =
@@ -386,8 +404,19 @@ private fun LookBackdrop(appearance: Appearance, modifier: Modifier) {
             context.contentResolver.unregisterContentObserver(settingsObserver)
         }
     }
-    val moving =
-        appearance.animations && resumed && systemAnimations && appearance.look != AppLook.CLASSIC
+    return enabled && resumed && systemAnimations
+}
+
+@Composable
+private fun LookBackdrop(appearance: Appearance, modifier: Modifier) {
+    if (appearance.look.isYouth) {
+        Canvas(modifier.testTag("look-still").clearAndSetSemantics {}) {
+            drawYouthBackdrop(appearance.look)
+        }
+        return
+    }
+    val motionAllowed = lookMotionAllowed(appearance.animations)
+    val moving = motionAllowed && themeAnimationEligible(appearance.look)
     val phase =
         if (moving) {
             rememberInfiniteTransition(label = "Look background")
@@ -407,7 +436,7 @@ private fun LookBackdrop(appearance: Appearance, modifier: Modifier) {
             .clearAndSetSemantics {}
     ) {
         drawLook(appearance.look, phase.value, accent, matrix)
-        if (appearance.look == AppLook.IRIDESCENT || appearance.look == AppLook.BAYERN) {
+        if (appearance.look == AppLook.BAYERN) {
             // Keep unboxed labels readable, while retaining saturated color at the edges.
             drawRect(
                 Brush.horizontalGradient(
@@ -591,9 +620,9 @@ private fun DrawScope.drawLook(look: AppLook, phase: Float, accent: Color, matri
     val w = size.width
     val h = size.height
     when (look) {
+        AppLook.STREET_ART, AppLook.BUBBLEGUM, AppLook.SPEED -> drawYouthBackdrop(look)
         AppLook.CLASSIC -> Unit
         AppLook.HACKER -> matrix.draw(this, phase)
-        AppLook.IRIDESCENT -> drawLiquid(phase)
         AppLook.BAYERN -> drawArena(phase)
         AppLook.PIXEL -> {
             val block = 24.dp.toPx()
@@ -757,7 +786,7 @@ fun AppearanceSettings(preferences: AppearancePreferences) {
                 }
             }
         }
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        if (!appearance.look.isYouth) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text("Hintergrund animieren", Modifier.weight(1f))
             Switch(
                 appearance.animations,
@@ -766,7 +795,7 @@ fun AppearanceSettings(preferences: AppearancePreferences) {
             )
         }
         Text(
-            "Alle Knöpfe bleiben an ihrem Platz. Ohne Animation bleibt dein Look erhalten. Die Android-Einstellung zum Ausschalten von Animationen gilt ebenfalls.",
+            if (appearance.look.isYouth) "Dieser Look ist immer statisch – auch bei eingeschalteten Systemanimationen." else "Alle Knöpfe bleiben an ihrem Platz. Ohne Animation bleibt dein Look erhalten. Die Android-Einstellung zum Ausschalten von Animationen gilt ebenfalls.",
             style = MaterialTheme.typography.bodySmall,
         )
     }

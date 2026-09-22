@@ -108,7 +108,7 @@ fun ProfileForm(save: (Profile) -> Unit) {
                 },
                 state == "Bayern",
             )
-            TextButton({ step = 0 }) { Text("Zurück zur Schulauswahl") }
+            TextButton({ step = 0 }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) { Text("Zurück zur Schulauswahl") }
         }
     }
 }
@@ -179,8 +179,8 @@ fun SubjectForm(p: Profile, existing: Subject?, delete: () -> Unit, save: (Subje
                 .onFailure { error = "Fachname, Schulaufgabenanzahl und positive Gewichte prüfen." }
         }
         if (existing != null)
-            TextButton({ confirmDelete = true }) {
-                Text("Fach löschen", color = MaterialTheme.colorScheme.error)
+            TextButton({ confirmDelete = true }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) {
+                Text("Fach löschen", color = if (LocalLook.current == AppLook.BAYERN) androidx.compose.ui.graphics.Color.White else MaterialTheme.colorScheme.error)
             }
     }
     if (existing != null) {
@@ -197,11 +197,11 @@ fun SubjectForm(p: Profile, existing: Subject?, delete: () -> Unit, save: (Subje
                     TextButton({
                         confirmDelete = false
                         delete()
-                    }) {
+                    }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) {
                         Text("Fach löschen")
                     }
                 },
-                dismissButton = { TextButton({ confirmDelete = false }) { Text("Abbrechen") } },
+                dismissButton = { TextButton({ confirmDelete = false }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) { Text("Abbrechen") } },
             )
     }
 }

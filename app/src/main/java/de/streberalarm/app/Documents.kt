@@ -74,8 +74,8 @@ fun DocumentPage(a: MainActivity, doc: Document) {
         if (error.isNotBlank()) Text(error)
         Text("Seite ${page+1} von $count")
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            OutlinedButton({ page-- }, enabled = page > 0) { Text("Vorherige") }
-            OutlinedButton({ page++ }, enabled = page < count - 1) { Text("Nächste") }
+            OutlinedButton({ page-- }, enabled = page > 0, colors = bayernButtonColors(ButtonDefaults.outlinedButtonColors())) { Text("Vorherige") }
+            OutlinedButton({ page++ }, enabled = page < count - 1, colors = bayernButtonColors(ButtonDefaults.outlinedButtonColors())) { Text("Nächste") }
         }
         bitmap?.let {
             Image(

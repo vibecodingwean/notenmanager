@@ -35,10 +35,10 @@ fun QuickPlanForm(p: Profile, subjects: List<Subject>, save: (Assessment) -> Uni
                                 .heightIn(min = 64.dp)
                                 .testTag("plan-subject-${s.id}"),
                         colors =
-                            ButtonDefaults.filledTonalButtonColors(
+                            bayernButtonColors(ButtonDefaults.filledTonalButtonColors(
                                 containerColor = themedSubjectTint(s),
                                 contentColor = Ink,
-                            ),
+                            )),
                     ) {
                         Text(s.name)
                     }
@@ -73,7 +73,7 @@ fun QuickPlanForm(p: Profile, subjects: List<Subject>, save: (Assessment) -> Uni
                 "Den Lernstoff kannst du danach auf deiner Karte ergänzen.",
                 style = MaterialTheme.typography.bodySmall,
             )
-            TextButton({ selected = "" }) { Text("Anderes Fach wählen") }
+            TextButton({ selected = "" }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) { Text("Anderes Fach wählen") }
         }
     }
 }

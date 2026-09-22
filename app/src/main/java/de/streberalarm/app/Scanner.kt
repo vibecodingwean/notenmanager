@@ -248,8 +248,7 @@ fun ScannerPage(activity: MainActivity, examId: String, done: () -> Unit) {
                         horizontal = 0f..1f
                         vertical = 0f..1f
                     },
-                    Modifier.fillMaxWidth(),
-                ) {
+                    Modifier.fillMaxWidth(), colors = bayernButtonColors(ButtonDefaults.outlinedButtonColors())) {
                     Text("90° drehen")
                 }
                 Action(
@@ -288,7 +287,7 @@ fun ScannerPage(activity: MainActivity, examId: String, done: () -> Unit) {
                 current?.let { File(it).delete() }
                 current = null
                 bitmap = null
-            }) {
+            }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) {
                 Text("Aufnahme verwerfen")
             }
         }
@@ -298,7 +297,7 @@ fun ScannerPage(activity: MainActivity, examId: String, done: () -> Unit) {
                 TextButton({
                     shots = ArrayList(shots.filterNot { it == path })
                     File(path).delete()
-                }) {
+                }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) {
                     Text("Entfernen")
                 }
                 if (index > 0)
@@ -306,7 +305,7 @@ fun ScannerPage(activity: MainActivity, examId: String, done: () -> Unit) {
                         val changed = ArrayList(shots)
                         java.util.Collections.swap(changed, index, index - 1)
                         shots = changed
-                    }) {
+                    }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) {
                         Text("Nach oben")
                     }
             }

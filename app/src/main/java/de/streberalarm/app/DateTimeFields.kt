@@ -36,8 +36,7 @@ fun DateField(label: String, value: String, change: (String) -> Unit) {
         Modifier.fillMaxWidth().testTag("date-$label"),
         shape =
             if (look == AppLook.HACKER || look == AppLook.PIXEL) lookShape(0.dp)
-            else ButtonDefaults.outlinedShape,
-    ) {
+            else ButtonDefaults.outlinedShape, colors = bayernButtonColors(ButtonDefaults.outlinedButtonColors())) {
         Icon(Icons.Outlined.CalendarMonth, null)
         Text("$label: ${dateLabel(value)}", Modifier.weight(1f))
     }
@@ -63,8 +62,7 @@ fun ClockField(label: String, value: String, change: (String) -> Unit) {
         Modifier.fillMaxWidth(),
         shape =
             if (look == AppLook.HACKER || look == AppLook.PIXEL) lookShape(0.dp)
-            else ButtonDefaults.outlinedShape,
-    ) {
+            else ButtonDefaults.outlinedShape, colors = bayernButtonColors(ButtonDefaults.outlinedButtonColors())) {
         Icon(Icons.Outlined.Schedule, null)
         Text("$label: ${value.ifBlank { "noch offen" }}", Modifier.weight(1f))
     }
@@ -78,8 +76,10 @@ private fun dateDialogStyle(look: AppLook) =
         AppLook.STREAMER -> R.style.StreamerDateDialog
         AppLook.ORBIT -> R.style.OrbitDateDialog
         AppLook.PIXEL -> R.style.PixelDateDialog
-        AppLook.IRIDESCENT -> R.style.IridescentDateDialog
         AppLook.BAYERN -> R.style.BayernDateDialog
+        AppLook.STREET_ART -> R.style.StreetArtDateDialog
+        AppLook.BUBBLEGUM -> R.style.BubblegumDateDialog
+        AppLook.SPEED -> R.style.SpeedDateDialog
     }
 
 private fun clockDialogStyle(look: AppLook) =
@@ -90,6 +90,8 @@ private fun clockDialogStyle(look: AppLook) =
         AppLook.STREAMER -> R.style.StreamerClockDialog
         AppLook.ORBIT -> R.style.OrbitClockDialog
         AppLook.PIXEL -> R.style.PixelClockDialog
-        AppLook.IRIDESCENT -> R.style.IridescentClockDialog
         AppLook.BAYERN -> R.style.BayernClockDialog
+        AppLook.STREET_ART -> R.style.StreetArtClockDialog
+        AppLook.BUBBLEGUM -> R.style.BubblegumClockDialog
+        AppLook.SPEED -> R.style.SpeedClockDialog
     }

@@ -213,7 +213,7 @@ fun RulesPage(p: Profile, d: SchoolData, save: (GraduationInput) -> Unit) {
                             TextButton({
                                 editing = course
                                 addCourse = true
-                            }) {
+                            }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) {
                                 Text("Kurs bearbeiten")
                             }
                             TextButton({
@@ -224,7 +224,7 @@ fun RulesPage(p: Profile, d: SchoolData, save: (GraduationInput) -> Unit) {
                                         exams = input.exams.filterNot { it.name == course.name },
                                     )
                                 result = null
-                            }) {
+                            }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) {
                                 Text("Kurs entfernen")
                             }
                         }
@@ -431,7 +431,7 @@ fun CourseDialog(existing: AbiturCourse?, dismiss: () -> Unit, save: (AbiturCour
                     },
                     name.isNotBlank() && points.all { it in 0..15 },
                 )
-                OutlinedButton(dismiss, Modifier.fillMaxWidth()) { Text("Abbrechen") }
+                OutlinedButton(dismiss, Modifier.fillMaxWidth(), colors = bayernButtonColors(ButtonDefaults.outlinedButtonColors())) { Text("Abbrechen") }
             }
         }
     }

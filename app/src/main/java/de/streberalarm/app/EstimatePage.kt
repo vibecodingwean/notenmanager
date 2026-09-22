@@ -19,6 +19,6 @@ fun EstimatePage(profile: Profile, exam: Assessment, save: (Int?) -> Unit) {
         Text("Dein Gefühl zählt nicht zum Notenschnitt.")
         GradePick("Deine gefühlte Note", value, profile.points) { value = it }
         Action("Einschätzung speichern", { save(value.toInt()) }, value.isNotBlank())
-        TextButton({ save(null) }, Modifier.fillMaxWidth()) { Text("Weiß ich nicht") }
+        TextButton({ save(null) }, Modifier.fillMaxWidth(), colors = bayernButtonColors(ButtonDefaults.textButtonColors())) { Text("Weiß ich nicht") }
     }
 }

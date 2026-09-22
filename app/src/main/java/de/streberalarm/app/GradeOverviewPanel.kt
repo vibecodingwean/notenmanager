@@ -1,5 +1,6 @@
 package de.streberalarm.app
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -121,17 +122,47 @@ fun GradeOverviewPanel(p: Profile, d: SchoolData) {
 
 @Composable
 fun OverallAveragePanel(p: Profile, result: GradeOverview) {
-    Panel("Dein Gesamtschnitt") {
+    val bayern = LocalLook.current == AppLook.BAYERN
+    if (!bayern) {
+        Panel("Dein Gesamtschnitt") {
+            Text(
+                "Ø ${number(result.average)}${if (p.points) " Punkte" else ""}",
+                Modifier.testTag("overall-average"),
+                style = MaterialTheme.typography.displayMedium,
+                fontWeight = FontWeight.Bold,
+                color = Green,
+            )
+            Text(
+                "Aus ${result.averageCount} von ${result.subjectCount} Fächern · jedes Fach zählt einmal.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+        return
+    }
+    val scheme = MaterialTheme.colorScheme
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = lookShape(20.dp),
+        border = if (bayern) BorderStroke(1.dp, scheme.onPrimaryContainer)
+            else BorderStroke(1.dp, scheme.outlineVariant),
+        colors = CardDefaults.cardColors(
+            containerColor = if (bayern) scheme.primaryContainer else scheme.surface,
+            contentColor = if (bayern) scheme.onPrimaryContainer else scheme.onSurface,
+        ),
+    ) {
+      Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text("Dein Gesamtschnitt", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
         Text(
             "Ø ${number(result.average)}${if (p.points) " Punkte" else ""}",
             Modifier.testTag("overall-average"),
             style = MaterialTheme.typography.displayMedium,
             fontWeight = FontWeight.Bold,
-            color = Green,
+            color = if (bayern) scheme.onPrimaryContainer else Green,
         )
         Text(
             "Aus ${result.averageCount} von ${result.subjectCount} Fächern · jedes Fach zählt einmal.",
             style = MaterialTheme.typography.bodySmall,
         )
+      }
     }
 }

@@ -2,7 +2,9 @@ package de.streberalarm.app
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
-import de.streberalarm.core.Subject
+import de.streberalarm.core.*
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.decodeFromString
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -50,12 +52,37 @@ class AppearanceTest {
 
     @Test
     fun vividLooksKeepControlsAndSelectionPanelsReadable() {
-        for (look in listOf(AppLook.IRIDESCENT, AppLook.BAYERN)) {
-            assertTrue(look.dark)
+        for (look in listOf(AppLook.BAYERN)) {
+            assertEquals(look == AppLook.BAYERN, look.dark)
             val c = lookScheme(look)
             assertTrue(contrast(c.onPrimaryContainer, c.primaryContainer) >= 4.5)
             assertTrue(contrast(c.onSurfaceVariant, c.surfaceVariant) >= 4.5)
         }
+    }
+
+    @Test
+    fun retiredStoredIdFallsBackWithoutChangingLoadedOrImportedSchoolData() {
+        val profile = Profile()
+        val subject = Subject(profileId = profile.id, name = "Mathematik", core = true)
+        val grade = Assessment(subjectId = subject.id, title = "Test", date = "2026-09-19",
+            actual = 2, stage = Stage.GRADED)
+        val data = SchoolData(profiles = listOf(profile), activeProfileId = profile.id,
+            subjects = listOf(subject), assessments = listOf(grade))
+        val json = dataJson.encodeToString(data)
+        val loaded = dataJson.decodeFromString<SchoolData>(json)
+        // AppearancePreferences uses this resolver; appearance is device-local, outside SchoolData.
+        val appearance = Appearance(AppLook.fromId("iridescent"), animations = false)
+        assertEquals(AppLook.CLASSIC, appearance.look)
+        assertFalse(appearance.animations)
+        assertEquals(data, loaded)
+        assertEquals(json, dataJson.encodeToString(loaded))
+        val password = java.util.UUID.randomUUID().toString().toCharArray()
+        val backup = Backup.export(loaded, password) { error("No attachments") }
+        val imported = Backup.restore(backup, password).data
+        assertEquals(data, imported)
+        assertEquals(profile, imported.active())
+        assertEquals(listOf(grade), imported.assessments)
+        assertEquals(AppLook.CLASSIC, AppLook.fromId("iridescent"))
     }
 
     @Test
@@ -68,12 +95,15 @@ class AppearanceTest {
                 "streamer",
                 "orbit",
                 "pixel",
-                "iridescent",
                 "bayern",
+                "streetart",
+                "bubblegum",
+                "speed",
             ),
             AppLook.entries.map { it.id },
         )
         AppLook.entries.forEach { assertEquals(it, AppLook.fromId(it.id)) }
+        assertEquals(AppLook.CLASSIC, AppLook.fromId("iridescent"))
         assertEquals(AppLook.CLASSIC, AppLook.fromId(null))
         assertEquals(AppLook.CLASSIC, AppLook.fromId("unknown"))
     }

@@ -32,16 +32,61 @@
     <style name="PixelClockDialog" parent="PixelDateDialog">
         <item name="android:timePickerStyle">@style/WheelClockWidget</item>
     </style>
-    <style name="IridescentDateDialog" parent="android:style/Theme.Material.Dialog.Alert">
-        <item name="android:colorAccent">#8FF5ED</item>
-    </style>
-    <style name="IridescentClockDialog" parent="IridescentDateDialog">
-        <item name="android:timePickerStyle">@style/DarkWheelClockWidget</item>
-    </style>
     <style name="BayernDateDialog" parent="android:style/Theme.Material.Dialog.Alert">
-        <item name="android:colorAccent">#FFBBC5</item>
+        <item name="android:colorAccent">#8BC5FF</item>
     </style>
     <style name="BayernClockDialog" parent="BayernDateDialog">
+        <item name="android:timePickerStyle">@style/DarkWheelClockWidget</item>
+    </style>
+    <style name="StreetArtDateDialog" parent="android:style/Theme.Material.Light.Dialog.Alert">
+        <item name="android:colorAccent">#873000</item>
+        <item name="android:colorBackground">#FFFCF5</item>
+        <item name="android:windowBackground">#FFFCF5</item>
+        <item name="android:textColorPrimary">#171511</item>
+        <item name="android:textColorSecondary">#171511</item>
+        <item name="android:textColorTertiary">#171511</item>
+        <item name="android:disabledAlpha">1.0</item>
+        <item name="android:datePickerStyle">@style/StreetArtDateWidget</item>
+    </style>
+    <style name="StreetArtDateWidget" parent="android:style/Widget.Material.Light.DatePicker">
+        <item name="android:datePickerMode">spinner</item>
+        <item name="android:calendarViewShown">false</item>
+    </style>
+    <style name="StreetArtClockDialog" parent="StreetArtDateDialog">
+        <item name="android:timePickerStyle">@style/WheelClockWidget</item>
+    </style>
+    <style name="BubblegumDateDialog" parent="android:style/Theme.Material.Light.Dialog.Alert">
+        <item name="android:colorAccent">#84245F</item>
+        <item name="android:colorBackground">#FFFAFD</item>
+        <item name="android:windowBackground">#FFFAFD</item>
+        <item name="android:textColorPrimary">#321044</item>
+        <item name="android:textColorSecondary">#321044</item>
+        <item name="android:textColorTertiary">#321044</item>
+        <item name="android:disabledAlpha">1.0</item>
+        <item name="android:datePickerStyle">@style/BubblegumDateWidget</item>
+    </style>
+    <style name="BubblegumDateWidget" parent="android:style/Widget.Material.Light.DatePicker">
+        <item name="android:datePickerMode">spinner</item>
+        <item name="android:calendarViewShown">false</item>
+    </style>
+    <style name="BubblegumClockDialog" parent="BubblegumDateDialog">
+        <item name="android:timePickerStyle">@style/WheelClockWidget</item>
+    </style>
+    <style name="SpeedDateDialog" parent="android:style/Theme.Material.Dialog.Alert">
+        <item name="android:colorAccent">#C6FF37</item>
+        <item name="android:colorBackground">#22262B</item>
+        <item name="android:windowBackground">#22262B</item>
+        <item name="android:textColorPrimary">#FFFFFF</item>
+        <item name="android:textColorSecondary">#FFFFFF</item>
+        <item name="android:textColorTertiary">#FFFFFF</item>
+        <item name="android:disabledAlpha">1.0</item>
+        <item name="android:datePickerStyle">@style/SpeedDateWidget</item>
+    </style>
+    <style name="SpeedDateWidget" parent="android:style/Widget.Material.DatePicker">
+        <item name="android:datePickerMode">spinner</item>
+        <item name="android:calendarViewShown">false</item>
+    </style>
+    <style name="SpeedClockDialog" parent="SpeedDateDialog">
         <item name="android:timePickerStyle">@style/DarkWheelClockWidget</item>
     </style>
 </resources>

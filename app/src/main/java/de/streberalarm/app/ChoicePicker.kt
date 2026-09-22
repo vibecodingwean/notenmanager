@@ -140,12 +140,11 @@ fun Pick(
                             expanded = false
                             addNew()
                         },
-                        Modifier.fillMaxWidth(),
-                    ) {
+                        Modifier.fillMaxWidth(), colors = bayernButtonColors(ButtonDefaults.textButtonColors())) {
                         Icon(Icons.Outlined.Add, null)
                         Text("Fach hinzufügen")
                     }
-                TextButton({ expanded = false }, Modifier.fillMaxWidth()) { Text("Abbrechen") }
+                TextButton({ expanded = false }, Modifier.fillMaxWidth(), colors = bayernButtonColors(ButtonDefaults.textButtonColors())) { Text("Abbrechen") }
                 Spacer(Modifier.height(8.dp))
             }
         }

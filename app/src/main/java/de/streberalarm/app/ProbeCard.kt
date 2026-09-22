@@ -124,7 +124,7 @@ fun ProbeCard(
                         )
                         if (wantsEstimate) {
                             Action("Gefühlte Note eintragen", estimate)
-                            TextButton(grade) { Text("Note eintragen") }
+                            TextButton(grade, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) { Text("Note eintragen") }
                         } else Action("Note eintragen", grade)
                     }
                     Stage.GRADED -> {
@@ -151,7 +151,7 @@ fun ProbeCard(
                             Text(
                                 "Dafür hast du ${sessions.sumOf { it.seconds(now) } / 60} Minuten geübt."
                             )
-                        TextButton(grade) { Text("Note ändern") }
+                        TextButton(grade, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) { Text("Note ändern") }
                     }
                     Stage.CANCELLED -> Text("Für diese Probe musst du nicht mehr lernen.")
                     else -> Unit
@@ -176,24 +176,23 @@ fun ProbeCard(
                                 }
                             }
                         },
-                        modifier = Modifier.testTag("mark-written-${e.id}"),
-                    ) {
+                        modifier = Modifier.testTag("mark-written-${e.id}"), colors = bayernButtonColors(ButtonDefaults.textButtonColors())) {
                         Text("Geschrieben")
                     }
-                    if (details != null) TextButton(details) { Text("Lernstoff & Details") }
-                    else TextButton(grade) { Text("Note eintragen") }
+                    if (details != null) TextButton(details, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) { Text("Lernstoff & Details") }
+                    else TextButton(grade, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) { Text("Note eintragen") }
                 }
             }
             if (e.stage != Stage.CANCELLED && e.stage != Stage.PLANNED) {
                 if (e.estimate != null)
-                    TextButton(estimate) { Text("Dein Gefühl: ${e.estimate} · ändern") }
+                    TextButton(estimate, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) { Text("Dein Gefühl: ${e.estimate} · ändern") }
                 else if (e.stage == Stage.GRADED)
-                    TextButton(estimate) { Text("Gefühlte Note eintragen") }
+                    TextButton(estimate, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) { Text("Gefühlte Note eintragen") }
                 if (own == null && !practice)
-                    TextButton({ practice = true }) { Text("Weiter üben") }
+                    TextButton({ practice = true }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) { Text("Weiter üben") }
             }
             if (e.stage != Stage.PLANNED)
-                details?.let { TextButton(it) { Text("Lernstoff & Details") } }
+                details?.let { TextButton(it, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) { Text("Lernstoff & Details") } }
         }
     }
 }

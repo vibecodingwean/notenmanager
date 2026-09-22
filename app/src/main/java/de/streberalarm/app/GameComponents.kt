@@ -45,7 +45,7 @@ fun GameTile(
 fun HelpPanel(title: String, content: @Composable ColumnScope.() -> Unit) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     Panel {
-        TextButton({ expanded = !expanded }, Modifier.fillMaxWidth()) {
+        TextButton({ expanded = !expanded }, Modifier.fillMaxWidth(), colors = bayernButtonColors(ButtonDefaults.textButtonColors())) {
             Text(title, Modifier.weight(1f), fontWeight = FontWeight.Bold)
             Icon(if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, null)
         }

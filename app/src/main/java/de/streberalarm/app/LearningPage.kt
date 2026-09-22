@@ -30,7 +30,7 @@ fun LearningPage(
     var archive by rememberSaveable { mutableStateOf(false) }
     if (archive) {
         Column(Modifier.fillMaxSize()) {
-            TextButton({ archive = false }) { Text("Zurück zu den Lernkarten") }
+            TextButton({ archive = false }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) { Text("Zurück zu den Lernkarten") }
             Box(Modifier.weight(1f)) { ExamsPage(p, d, open, addRecord) }
         }
         return
@@ -111,10 +111,9 @@ fun LearningPage(
             shape =
                 if (LocalLook.current == AppLook.HACKER || LocalLook.current == AppLook.PIXEL)
                     lookShape(0.dp)
-                else ButtonDefaults.outlinedShape,
-        ) {
+                else ButtonDefaults.outlinedShape, colors = bayernButtonColors(ButtonDefaults.outlinedButtonColors())) {
             Text("Probe planen")
         }
-        TextButton({ archive = true }) { Text("Alle Proben") }
+        TextButton({ archive = true }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) { Text("Alle Proben") }
     }
 }
