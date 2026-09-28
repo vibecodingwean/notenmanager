@@ -592,6 +592,7 @@ class AcceptanceTest {
         ui.onNodeWithTag("nav-Lernen").assertExists()
         ui.onNodeWithTag("nav-Meine Noten").assertExists()
         ui.onNodeWithText("Probe planen").performScrollTo().performClick()
+        capture("quick-plan-subjects")
         ui.onNodeWithTag("plan-subject-${subject.id}").performScrollTo().performClick()
         ui.onNodeWithText("Was kommt / kam dran?").assertDoesNotExist()
         ui.onNodeWithTag("stage-PLANNED").assertDoesNotExist()
@@ -1239,7 +1240,7 @@ class AcceptanceTest {
     fun onboardingUnsupportedStateAndSettings() {
         assertEquals("com.streberalarm.app", ui.activity.packageName)
         val appInfo = ui.activity.applicationInfo
-        assertEquals("StreberAlarm", appInfo.loadLabel(ui.activity.packageManager).toString())
+        assertEquals("NotenManager", appInfo.loadLabel(ui.activity.packageManager).toString())
         val launcherIcon = appInfo.loadIcon(ui.activity.packageManager)
         assertTrue(launcherIcon is android.graphics.drawable.AdaptiveIconDrawable)
         // Capture the actual packaged icon for inspection of Android's mask and safe area.
@@ -1259,7 +1260,8 @@ class AcceptanceTest {
         }
         runBlocking { repo.update { SchoolData() } }
         ui.waitForIdle()
-        ui.onNodeWithText("Willkommen bei StreberAlarm").assertExists()
+        ui.onNodeWithText("Willkommen bei NotenManager").assertExists()
+        capture("notenmanager-onboarding")
         choose("Bundesland", "Berlin")
         ui.onNodeWithText("Noch nicht unterstützt").assertExists()
         ui.onNodeWithText("Weiter").performScrollTo().assertIsNotEnabled()

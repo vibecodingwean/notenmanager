@@ -1,6 +1,6 @@
-# StreberAlarm
+# NotenManager
 
-<img src="assets/branding/streberalarm.png" alt="StreberAlarm: Schüler mit erhobenem Zeigefinger und rotem Sirenenring" width="160" />
+<img src="assets/branding/notenmanager.png" alt="NotenManager: Offenes Schulbuch mit einem Wegpfeil" width="160" />
 
 Deutschsprachiger Noten- und Lernplaner: sicher durchkommen, ohne ständig Bestnoten anzustreben. Die Android-App ist kostenlos vorgesehen; eine spätere iOS-App kann kostenpflichtig angeboten werden. Android startet zuerst; der gemeinsame Kotlin-Multiplatform-Kern bereitet eine spätere iOS-App vor.
 
@@ -46,4 +46,4 @@ Der Quellcode steht unter der [MIT-Lizenz](LICENSE). Android-APKs und App Bundle
 
 ## Website und Tutorial
 
-[StreberAlarm entdecken](https://app.wean.de/streberalarm/) – mit deutschem Tutorial und Datenschutzhinweisen.
+[NotenManager entdecken](https://app.wean.de/notenmanager/) – mit deutschem Tutorial und Datenschutzhinweisen.

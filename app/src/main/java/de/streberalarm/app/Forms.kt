@@ -26,7 +26,7 @@ fun ProfileForm(save: (Profile) -> Unit) {
         else listOf("Ganzes Schuljahr", "1. Halbjahr", "2. Halbjahr")
     LaunchedEffect(terms) { if (term !in terms) term = terms.first() }
     Page(
-        "Willkommen bei StreberAlarm",
+        "Willkommen bei NotenManager",
         "Schritt ${step + 1} von 2 · Nimm deinen Stundenplan dazu.",
     ) {
         if (step == 0) {

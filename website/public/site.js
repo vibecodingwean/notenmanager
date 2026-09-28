@@ -36,6 +36,7 @@ document.querySelectorAll('[data-start]').forEach(button => button.onclick = () 
     if (video.currentTime >= Number(button.dataset.end)) video.pause();
   };
   video.src = 'assets/tutorial-v2.mp4';
+  document.querySelector('#media-caption').textContent = 'Aufnahmen der früheren StreberAlarm-Version. Die App heißt jetzt NotenManager; Aussehen und einzelne Abläufe können inzwischen abweichen.';
   content.replaceChildren(video);
   dialog.showModal();
 });
@@ -46,6 +47,7 @@ document.querySelectorAll('[data-image]').forEach(link => link.onclick = event =
   const image = document.createElement('img');
   image.src = link.href;
   image.alt = link.querySelector('img').alt;
+  document.querySelector('#media-caption').textContent = 'App-Aufnahme der früheren StreberAlarm-Version. Die App heißt jetzt NotenManager.';
   content.replaceChildren(image);
   dialog.showModal();
 });

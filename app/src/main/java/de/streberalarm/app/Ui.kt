@@ -220,7 +220,7 @@ fun StreberAlarm(activity: MainActivity) {
             snackbarHost = { SnackbarHost(snack) },
             topBar = {
                 TopAppBar(
-                    title = { Text("StreberAlarm", fontWeight = FontWeight.SemiBold) },
+                    title = { Text("NotenManager", fontWeight = FontWeight.SemiBold) },
                     navigationIcon = {
                         if (page != "home")
                             IconButton({ page = "home" }) {
@@ -1216,7 +1216,7 @@ fun SettingsPage(
         OutlinedButton(rules, Modifier.fillMaxWidth(), colors = bayernButtonColors(ButtonDefaults.outlinedButtonColors())) { Text("Rechtsgrundlagen und Regelprüfung") }
         HelpPanel("Wer kann meine Daten sehen?") {
             Text(
-                "StreberAlarm speichert Profile, Noten, Lernzeiten und Dokumente lokal im privaten App-Speicher. Kein Konto, keine Werbung, keine eigene App-Analyse, keine Cloud-KI. Automatische Android-Cloud-Sicherungen und Geräteübertragung sind deaktiviert."
+                "NotenManager speichert Profile, Noten, Lernzeiten und Dokumente lokal im privaten App-Speicher. Kein Konto, keine Werbung, keine eigene App-Analyse, keine Cloud-KI. Automatische Android-Cloud-Sicherungen und Geräteübertragung sind deaktiviert."
             )
             Text(
                 "Den Speicherort exportierter Backups wählst du selbst. Dort kann ein von dir gewählter Dateidienst beteiligt sein. Der lokale Scanner arbeitet ohne Übermittlung von Bildern oder Nutzungsdaten. Optional steht Google ML Kit zur Verfügung: Erst nach Auswahl und Bestätigung des Hinweises wird das SDK initialisiert. Google kann Geräte- und Appinformationen, Kennungen, Diagnose- und Nutzungsdaten verarbeiten; Scans selbst werden laut Google auf dem Gerät verarbeitet. Die erste Nutzung kann einen Download benötigen. Bereits bei Google entstandene Diagnosedaten werden durch spätere Wahl des lokalen Scanners nicht zurückgerufen."

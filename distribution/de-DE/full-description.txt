@@ -1,4 +1,4 @@
-Behalte deinen Schulalltag im Blick: StreberAlarm verbindet Notenübersicht, Prüfungstermine, Stundenplan und Lernzeit.
+Behalte deinen Schulalltag im Blick: NotenManager verbindet Notenübersicht, Prüfungstermine, Stundenplan und Lernzeit.
 
 DEIN LERNPLAN
 Sammle Lernstoff und Notizen bei jeder Prüfung. Erfasse Lernphasen mit einem Timer und sieh, wie viele Unterrichtstermine noch bleiben. Zusammenhängende Doppelstunden zählen als ein Termin.

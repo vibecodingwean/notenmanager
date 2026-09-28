@@ -135,7 +135,7 @@ fun ScannerPage(activity: MainActivity, examId: String, done: () -> Unit) {
     Page("Arbeit scannen", "${shots.size} Seiten vorbereitet · vollständig lokal") {
         if (!granted) {
             Text(
-                "Für die Aufnahme benötigt StreberAlarm Zugriff auf die Kamera. Bilder und PDFs kannst du auch ohne Kamerafreigabe importieren."
+                "Für die Aufnahme benötigt NotenManager Zugriff auf die Kamera. Bilder und PDFs kannst du auch ohne Kamerafreigabe importieren."
             )
             Action("Kamera erlauben") { permission.launch(Manifest.permission.CAMERA) }
         } else if (current == null) {

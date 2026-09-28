@@ -190,7 +190,7 @@ class MainActivity : ComponentActivity() {
     fun export(password: String) {
         backupPassword?.fill('\u0000')
         backupPassword = password.toCharArray()
-        exporter.launch("StreberAlarm-${java.time.LocalDate.now()}.sabackup")
+        exporter.launch("NotenManager-${java.time.LocalDate.now()}.sabackup")
     }
 
     fun restore(password: String) {
