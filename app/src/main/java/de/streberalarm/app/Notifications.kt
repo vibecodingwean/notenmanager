@@ -35,14 +35,8 @@ object ReminderScheduler {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
         alarms.cancel(pending)
-        val portable = SchoolZonedTime.fromEpochMillis(now.toInstant().toEpochMilli(), now.zone.id)
-        val at =
-            listOfNotNull(
-                    Reminders.plan(data, now).firstOrNull()?.at?.toInstant()?.toEpochMilli(),
-                    EstimatePrompts.nextAt(data, portable, EstimateNotifications.allowed(c))
-                        ?.epochMillis,
-                )
-                .minOrNull() ?: return
+        EstimateNotifications.retire(c)
+        val at = Reminders.plan(data, now).firstOrNull()?.at?.toInstant()?.toEpochMilli() ?: return
         try {
             if (exact(c)) alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pending)
             else alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pending)
@@ -72,21 +66,15 @@ class ReminderReceiver : BroadcastReceiver() {
             try {
                 val now = ZonedDateTime.now()
                 app.repository.refreshEstimates(now)
-                val data = app.repository.current()
+                // Alarms always belong to the real workspace, even while the demo is visible.
+                val data = app.repository.realCurrent()
                 val today =
                     Reminders.plan(data, now.toLocalDate().atStartOfDay(now.zone)).find {
                         it.at.toLocalDate() == now.toLocalDate() && it.at <= now
                     }
                 if (today != null && ReminderScheduler.allowed(context)) {
                     ReminderScheduler.channel(context)
-                    val lines =
-                        today.notices.map { n ->
-                            val minutes =
-                                data.studies
-                                    .filter { it.assessmentId == n.examId }
-                                    .sumOf { it.seconds(System.currentTimeMillis()) } / 60
-                            n.text + if (minutes > 0) " · $minutes Min. gelernt" else ""
-                        }
+                    val lines = today.notices.map { it.text }
                     val open =
                         PendingIntent.getActivity(
                             context,
@@ -114,9 +102,7 @@ class ReminderReceiver : BroadcastReceiver() {
                     try {
                         NotificationManagerCompat.from(context)
                             .notify(now.toLocalDate().toEpochDay().toInt(), notification)
-                        app.repository.update {
-                            it.copy(delivered = it.delivered + today.notices.map { n -> n.key })
-                        }
+                        app.repository.deliverReal(today.notices.map { n -> n.key })
                     } catch (_: SecurityException) {
                         ReminderScheduler.schedule(context, data, now)
                     }

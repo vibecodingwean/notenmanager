@@ -1,0 +1,69 @@
+name: NotenManager
+options:
+  bundleIdPrefix: com.streberalarm
+  deploymentTarget:
+    iOS: "16.0"
+  generateEmptyDirectories: true
+settings:
+  base:
+    SWIFT_VERSION: 5.0
+    CODE_SIGN_STYLE: Automatic
+    TARGETED_DEVICE_FAMILY: "1"
+targets:
+  NotenManager:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources
+      - path: Services
+      - path: Resources
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.streberalarm.app
+        TARGETED_DEVICE_FAMILY: "1"
+        INFOPLIST_FILE: Sources/Info.plist
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        FRAMEWORK_SEARCH_PATHS: "$(inherited) $(SRCROOT)/../core/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)"
+        OTHER_LDFLAGS: "$(inherited) -framework StreberAlarmCore"
+        MARKETING_VERSION: 1.0.1
+        CURRENT_PROJECT_VERSION: 30
+    preBuildScripts:
+      - name: Build shared Kotlin core
+        basedOnDependencyAnalysis: false
+        script: |
+          set -e
+          cd "$SRCROOT/.."
+          if [ -z "${JAVA_HOME:-}" ]; then
+            if /usr/libexec/java_home -v 17 >/dev/null 2>&1; then
+              export JAVA_HOME="$(/usr/libexec/java_home -v 17)"
+            else
+              LOCAL_JAVA="$(find "$PWD/_dev_tools/jdk" -path '*/Contents/Home/bin/java' -print -quit 2>/dev/null)"
+              if [ -n "$LOCAL_JAVA" ]; then export JAVA_HOME="${LOCAL_JAVA%/bin/java}"; fi
+            fi
+          fi
+          export GRADLE_USER_HOME="$PWD/_dev_tools/gradle"
+          export KONAN_DATA_DIR="$PWD/_dev_tools/konan"
+          ./gradlew :core:embedAndSignAppleFrameworkForXcode -PiosCoreOnly=true --no-daemon --console=plain
+  NotenManagerUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: UITests
+    dependencies:
+      - target: NotenManager
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.streberalarm.app.uitests
+        GENERATE_INFOPLIST_FILE: YES
+  NotenManagerTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: ../iosAppTests
+    dependencies:
+      - target: NotenManager
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.streberalarm.app.tests
+        GENERATE_INFOPLIST_FILE: YES

@@ -42,4 +42,4 @@ Die Entwicklungsversion darf noch nicht als vollständige Rechtsabdeckung vermar
 
 Vor einer öffentlichen Version sind diese Lücken entweder vollständig implementiert und getestet oder der angebotene Geltungsbereich ausdrücklich neu festgelegt. Der zugesagte erste öffentliche Umfang ist bisher nicht reduziert. Die vorhandenen Referenz- und Grenzfalltests beweisen die jeweils getesteten Verfahren, keine pauschale vollständige Rechtskonformität.
 
-Externenprüfungen, Abendgymnasium, Kolleg und andere Bundesländer gehören nicht zum Startumfang. iOS ist als spätere Plattform vorgesehen.
+Externenprüfungen, Abendgymnasium, Kolleg und andere Bundesländer gehören nicht zum Startumfang. Der vorhandene iOS-Port teilt den bayerischen Regelkern mit Android. Die offene öffentliche Release-Abnahme gilt für beide Plattformen; iOS ist noch nicht öffentlich veröffentlicht.

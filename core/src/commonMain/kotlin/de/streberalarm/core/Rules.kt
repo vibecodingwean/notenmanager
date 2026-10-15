@@ -427,6 +427,7 @@ object Rules {
         val src =
             listOf(
                 law("BayGSO-44"),
+                law("BayGSO-48"),
                 law("BayGSO-53"),
                 law("BayGSO-54"),
                 law("BayGSO-ANL_17"),
@@ -518,6 +519,8 @@ object Rules {
         if (seminar == 0 || talk == 0) failures.add("Seminararbeit oder Gespräch mit 0 Punkten.")
         val advanced = i.courses.filter { it.advanced }
         if (advanced.size != 1) failures.add("Genau ein Leistungsfach erforderlich.")
+        if (advanced.size == 1 && i.exams.none { it.name == advanced.single().name })
+            failures.add("Das Leistungsfach muss nach § 48 Abs. 1 ein Abiturprüfungsfach sein.")
         val trio =
             (listOfNotNull(courses["Deutsch"], courses["Mathematik"]) + advanced).distinctBy {
                 it.name

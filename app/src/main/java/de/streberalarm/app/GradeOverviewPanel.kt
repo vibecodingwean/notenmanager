@@ -64,59 +64,17 @@ fun GradeOverviewPanel(p: Profile, d: SchoolData) {
                 )
             }
             Text(result.reason)
-            Text(result.basis, style = MaterialTheme.typography.bodySmall)
-            HorizontalDivider()
-            val mainCompensation = result.compensation.firstOrNull()
-            val primary = mainCompensation ?: result.improvements.firstOrNull()
+            val affected = result.standings.filter { row -> (row.grade ?: 0) >= 5 }.map { it.subject.name }
+            if (affected.isNotEmpty()) Text("Im Blick behalten: ${affected.joinToString(", ")}", style = MaterialTheme.typography.bodySmall)
             Text(
-                if (mainCompensation != null) "Notenausgleich" else "Das hilft dir",
-                fontWeight = FontWeight.Bold,
-            )
-            primary?.let { plan ->
-                Text(
-                    (if (plan.alreadyMet) "Schon passend: " else "Ziel im Zeugnis: ") +
-                        plan.goals.joinToString(" + ") { "${it.name} ${it.grade}" },
-                    Modifier.testTag("promotion-goal"),
-                    fontWeight = FontWeight.Bold,
-                )
-            }
-            Text(result.advice)
-            Text(
-                "Orientierung – die Entscheidung trifft deine Schule.",
+                if (result.standings.any { it.grade != null && !it.annual }) "Einschätzung aus bisherigen Noten"
+                else if (result.standings.any { it.annual }) "Aus eingetragenen offiziellen Ergebnissen"
+                else "Noch keine sichere Einschätzung möglich",
                 style = MaterialTheme.typography.bodySmall,
             )
+            Text("Die Entscheidung trifft deine Schule.", style = MaterialTheme.typography.bodySmall)
         }
-        HelpPanel("Weitere Wege & Berechnung") {
-            if (result.improvements.isNotEmpty()) {
-                Text("Schwache Fächer verbessern", fontWeight = FontWeight.Bold)
-                result.improvements.forEach { plan ->
-                    Text("• " + plan.goals.joinToString(" + ") { "${it.name} auf ${it.grade}" })
-                }
-            }
-            if (result.compensation.isNotEmpty()) {
-                Text("Mögliche Ausgleichsnoten", fontWeight = FontWeight.Bold)
-                result.compensation.forEach { plan ->
-                    Text(
-                        "• " +
-                            plan.goals.joinToString(" + ") { "${it.name}: ${it.grade}" } +
-                            if (plan.alreadyMet) " – Notenmuster passt bereits"
-                            else " – mögliches Ziel"
-                    )
-                }
-            }
-            result.notes.forEach { Text(it) }
-            if (result.standings.isNotEmpty()) {
-                Text("Für die Ampel berücksichtigt", fontWeight = FontWeight.Bold)
-                result.standings.forEach { row ->
-                    Text(
-                        "${row.subject.name}: ${row.grade ?: "fehlt"}" +
-                            if (row.grade == null) ""
-                            else if (row.annual) " · Jahreszeugnis" else " · gerundeter Fachschnitt"
-                    )
-                }
-            }
-            result.sources.forEach { Source(it) }
-        }
+
     }
 }
 

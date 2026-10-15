@@ -12,6 +12,7 @@ import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,6 +29,8 @@ import java.time.*
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 fun number(n: Double?) = n?.let { String.format(Locale.GERMANY, "%.2f", it) } ?: "–"
 
@@ -127,7 +130,7 @@ fun Check(label: String, value: Boolean, onChange: (Boolean) -> Unit) {
 @Composable fun Action(text: String, onClick: () -> Unit) = Action(text, onClick, true)
 
 @Composable
-fun Action(text: String, onClick: () -> Unit, enabled: Boolean) {
+fun Action(text: String, onClick: () -> Unit, enabled: Boolean, modifier: Modifier = Modifier) {
     val look = LocalLook.current
     val shape = lookShape(20.dp)
     val gradient =
@@ -141,7 +144,7 @@ fun Action(text: String, onClick: () -> Unit, enabled: Boolean) {
         }
     Button(
         onClick,
-        Modifier.fillMaxWidth()
+        modifier.fillMaxWidth()
             .heightIn(min = 58.dp)
             .then(
                 if (enabled && look != AppLook.CLASSIC)
@@ -182,6 +185,23 @@ fun StreberAlarm(activity: MainActivity) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var page by rememberSaveable { mutableStateOf("home") }
     var selection by rememberSaveable { mutableStateOf("") }
+    var fromSettings by rememberSaveable { mutableStateOf(false) }
+    val settingsState = rememberSaveableStateHolder()
+    val vocabularyState = rememberSaveableStateHolder()
+    val learningState = rememberSaveableStateHolder()
+    val vocabularyGeneration by activity.repo.vocabularyGeneration.collectAsState()
+    val demo by activity.repo.isDemo.collectAsState()
+    var vocabularyBack by remember { mutableStateOf<(() -> Unit)?>(null) }
+    var gradeBack by remember { mutableStateOf<(() -> Unit)?>(null) }
+    var settingsPracticeParent by rememberSaveable { mutableStateOf("") }
+    var documentParent by rememberSaveable { mutableStateOf("home") }
+    var documentParentSelection by rememberSaveable { mutableStateOf("") }
+    var lastVocabularyKey by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(data?.activeProfileId, vocabularyGeneration) {
+        val current = "vocabulary:${data?.activeProfileId}:$vocabularyGeneration"
+        lastVocabularyKey?.takeIf { it != current }?.let { vocabularyState.removeState(it) }
+        lastVocabularyKey = current
+    }
     LaunchedEffect(tab) { if (tab !in 0..2) tab = 0 }
     val snack = remember { SnackbarHostState() }
     LaunchedEffect(message) {
@@ -191,47 +211,68 @@ fun StreberAlarm(activity: MainActivity) {
         }
     }
     fun open(where: String, id: String = "") {
+        if (page in listOf("scanner", "examGrade") && where != page && demo)
+            activity.repo.closeDemoScansForExam(selection)
+        if (where == "settings") settingsPracticeParent = page.takeIf { it in listOf("vocabulary", "flashcards") }.orEmpty()
+        if (where == "document") {
+            documentParent = page
+            documentParentSelection = selection
+        }
+        if (where == "settings" || page == "home") fromSettings = false
         selection = id
         page = where
     }
-    fun update(block: (SchoolData) -> SchoolData) {
-        activity.action { activity.repo.update(block) }
+    fun openSettingsChild(where: String) {
+        open(where)
+        fromSettings = true
     }
-    LaunchedEffect(estimateRequest, data != null) {
-        val examId = estimateRequest
-        val current = data
-        if (examId != null && current != null) {
-            val exam = current.assessments.find { it.id == examId && it.stage != Stage.CANCELLED }
-            val profileId = current.subjects.find { it.id == exam?.subjectId }?.profileId
-            if (exam != null && profileId != null) {
-                update { it.copy(activeProfileId = profileId) }
-                open("estimate", exam.id)
-            }
-            activity.estimateRequest.value = null
+    fun back() {
+        if (page == "examGrade" && gradeBack != null) {
+            gradeBack?.invoke()
+            return
         }
+        if (page in listOf("vocabulary", "flashcards") && vocabularyBack != null) {
+            vocabularyBack?.invoke()
+            return
+        }
+        if (page in listOf("scanner", "examGrade") && demo)
+            activity.repo.closeDemoScansForExam(selection)
+        page = when {
+            page == "settings" && settingsPracticeParent.isNotEmpty() -> settingsPracticeParent
+            page == "document" -> documentParent.also { selection = documentParentSelection }
+            fromSettings && page in listOf("timetableEdit", "dayOff", "exception") -> "timetable"
+            fromSettings && page in listOf("appearance", "privacyRules", "timetable", "profile", "subjectEdit", "official", "transfer") -> "settings"
+            else -> "home"
+        }
+        if (page == "settings" || page == "home") fromSettings = false
     }
+    fun update(block: (SchoolData) -> SchoolData) {
+        val generation = activity.repo.vocabularyGeneration.value
+        activity.action { activity.repo.update(generation, block) }
+    }
+    // Old notification intents safely land on the ordinary start page.
+    LaunchedEffect(estimateRequest) { activity.estimateRequest.value = null }
     AppearanceTheme(activity) {
         val d = data
         val p = d?.active()
-        BackHandler(page != "home") { page = "home" }
+        BackHandler(page != "home") { back() }
         Scaffold(
             containerColor = Color.Transparent,
             contentColor = MaterialTheme.colorScheme.onBackground,
             snackbarHost = { SnackbarHost(snack) },
             topBar = {
-                TopAppBar(
-                    title = { Text("NotenManager", fontWeight = FontWeight.SemiBold) },
+                        TopAppBar(
+                    title = { Text(if (demo) "NotenManager · DEMO" else "NotenManager", fontWeight = FontWeight.SemiBold) },
                     navigationIcon = {
                         if (page != "home")
-                            IconButton({ page = "home" }) {
+                            IconButton({ back() }) {
                                 Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Zurück")
                             }
                     },
                     actions = {
-                        if (p != null)
-                            IconButton({ open("settings") }) {
-                                Icon(Icons.Outlined.Settings, "Einstellungen")
-                            }
+                        IconButton({ open("settings") }) {
+                            Icon(Icons.Outlined.Settings, "Einstellungen")
+                        }
                     },
                 )
             },
@@ -245,7 +286,7 @@ fun StreberAlarm(activity: MainActivity) {
                                 Icons.AutoMirrored.Outlined.EventNote,
                                 Icons.Outlined.CalendarViewWeek,
                             )
-                        listOf(0 to "Heute", 2 to "Lernen", 1 to "Meine Noten").forEach { (i, label)
+                        listOf(0 to "Heute", 1 to "Meine Noten", 2 to "Lernen").forEach { (i, label)
                             ->
                             NavigationBarItem(
                                 modifier = Modifier.testTag("nav-$label"),
@@ -265,6 +306,23 @@ fun StreberAlarm(activity: MainActivity) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator()
                     }
+                else if (p == null && page == "settings")
+                    SettingsPage(
+                        activity, d, demo,
+                        { activity.action { activity.repo.loadDemo(); activity.message.value = "Fiktive Testdaten sind geladen." }; page = "home" },
+                        { activity.action { activity.repo.returnToReal(); activity.message.value = "Deine echten Daten sind wieder sichtbar." }; page = "home" },
+                        { activity.action { activity.repo.deleteDemo(); activity.message.value = "Testdaten gelöscht. Deine echten Daten sind unverändert." }; page = "home" },
+                        { openSettingsChild("profile") },
+                        { id -> update { it.copy(activeProfileId = id) } },
+                        { openSettingsChild("privacyRules") },
+                        { openSettingsChild("timetable") },
+                        { openSettingsChild("appearance") },
+                        { id -> open("subjectEdit", id); fromSettings = true },
+                        { id -> open("official", id); fromSettings = true },
+                        { open("transfer"); fromSettings = true },
+                    )
+                else if (p == null && page == "privacyRules")
+                    PrivacyRulesPage(null)
                 else if (p == null || page == "profile")
                     ProfileForm { profile ->
                         update { old ->
@@ -279,15 +337,36 @@ fun StreberAlarm(activity: MainActivity) {
                     }
                 else
                     when (page) {
-                        "settings" ->
+                        "flashcards" -> key(p.id, vocabularyGeneration) {
+                            FlashcardsPage(activity, p, d, vocabularyGeneration,
+                                exit = { page = "home" }, onBackChanged = { vocabularyBack = it })
+                        }
+                        "vocabulary" -> vocabularyState.SaveableStateProvider("vocabulary:${p.id}:$vocabularyGeneration") {
+                            key(p.id, vocabularyGeneration) {
+                                VocabularyPage(activity, p, d, vocabularyGeneration,
+                                    exit = { page = "home" }, onBackChanged = { vocabularyBack = it })
+                            }
+                        }
+                        "settings" -> settingsState.SaveableStateProvider("settings") {
                             SettingsPage(
                                 activity,
                                 d,
-                                { open("profile") },
+                                demo,
+                                { activity.action { activity.repo.loadDemo(); activity.message.value = "Fiktive Testdaten sind geladen." }; page = "home" },
+                                { activity.action { activity.repo.returnToReal(); activity.message.value = "Deine echten Daten sind wieder sichtbar." }; page = "home" },
+                                { activity.action { activity.repo.deleteDemo(); activity.message.value = "Testdaten gelöscht. Deine echten Daten sind unverändert." }; page = "home" },
+                                { openSettingsChild("profile") },
                                 { id -> update { it.copy(activeProfileId = id) } },
-                                { open("rules") },
-                                { open("timetable") },
+                                { openSettingsChild("privacyRules") },
+                                { openSettingsChild("timetable") },
+                                { openSettingsChild("appearance") },
+                                { id -> open("subjectEdit", id); fromSettings = true },
+                                { id -> open("official", id); fromSettings = true },
+                                { open("transfer"); fromSettings = true },
                             )
+                        }
+                        "appearance" -> Page("Dein Look") { AppearanceSettings(activity.appearance) }
+                        "privacyRules" -> PrivacyRulesPage(p)
                         "subject" ->
                             d.subjects
                                 .find { it.id == selection }
@@ -297,9 +376,12 @@ fun StreberAlarm(activity: MainActivity) {
                                         it,
                                         d,
                                         { open("subjectEdit", it.id) },
-                                        { open("exam", it) },
-                                        { open("examEdit", "new:${it.id}") },
+                                        { open("examGrade", it) },
+                                        { open("examGrade", "new:${it.id}") },
                                         { open("official", it.id) },
+                                        activity,
+                                        { open("document", it) },
+                                        { id -> activity.action { activity.repo.deleteExam(id, vocabularyGeneration) } },
                                     )
                                 }
                         "subjectEdit" ->
@@ -307,7 +389,9 @@ fun StreberAlarm(activity: MainActivity) {
                                 p,
                                 d.subjects.find { it.id == selection },
                                 {
-                                    activity.action { activity.repo.deleteSubject(selection) }
+                                    val generation = activity.repo.vocabularyGeneration.value
+                                    val id = selection
+                                    activity.action { activity.repo.deleteSubject(id, generation) }
                                     page = "home"
                                 },
                             ) { s ->
@@ -328,64 +412,38 @@ fun StreberAlarm(activity: MainActivity) {
                                         e,
                                         { open("examEdit", e.id) },
                                         { open("examGrade", e.id) },
-                                        { open("estimate", e.id) },
-                                        { open("scanner", e.id) },
                                         { open("document", it) },
                                         {
-                                            activity.action { activity.repo.deleteExam(e.id) }
+                                            val generation = activity.repo.vocabularyGeneration.value
+                                            activity.action { activity.repo.deleteExam(e.id, generation) }
                                             page = "home"
                                         },
                                     )
                                 }
-                        "estimate" ->
-                            d.assessments
-                                .find { it.id == selection }
-                                ?.let { e ->
-                                    EstimatePage(p, e) { grade ->
-                                        update { current ->
-                                            current.copy(
-                                                assessments =
-                                                    current.assessments.map {
-                                                        if (it.id == e.id) it.copy(estimate = grade)
-                                                        else it
-                                                    },
-                                                delivered =
-                                                    current.delivered +
-                                                        if (grade == null)
-                                                            setOf(EstimatePrompts.skipKey(e))
-                                                        else emptySet(),
-                                            )
-                                        }
-                                        open("exam", e.id)
-                                    }
-                                }
                         "plan" ->
-                            QuickPlanForm(p, d.subjects.filter { it.profileId == p.id }) { e ->
-                                update { it.copy(assessments = it.assessments + e) }
-                                open("exam", e.id)
-                            }
-                        "examEdit",
-                        "examGrade" ->
-                            ExamForm(
-                                p,
-                                d.subjects.filter { it.profileId == p.id }.alphabetical(),
-                                d.assessments.find { it.id == selection },
-                                selection.removePrefix("new:"),
-                                grading = page == "examGrade",
-                                attachments = {
-                                    d.assessments
-                                        .find { it.id == selection }
-                                        ?.let { e -> GradeAttachments(activity, d, e) }
-                                },
-                            ) { e ->
-                                update {
-                                    it.copy(
-                                        assessments =
-                                            it.assessments.filterNot { a -> a.id == e.id } + e
-                                    )
+                            QuickPlanForm(p, d.subjects.filter { it.profileId == p.id }, saving = busy) { e ->
+                                activity.action {
+                                    activity.repo.update(vocabularyGeneration) { it.copy(assessments = it.assessments + e) }
+                                    withContext(Dispatchers.Main) { page = "home" }
                                 }
-                                open("exam", e.id)
                             }
+                        "examGrade" -> key(p.id, selection) {
+                            CompactGradePage(activity, p, d, selection,
+                                onSaved = { id ->
+                                    selection = d.assessments.find { it.id == id }?.subjectId
+                                        ?: activity.repo.state.value?.assessments?.find { it.id == id }?.subjectId.orEmpty()
+                                    page = "subject"
+                                }, onCancel = { page = "home" }, onBackChanged = { gradeBack = it })
+                        }
+                        "examEdit" -> key(p.id, selection) {
+                            QuickPlanForm(p, d.subjects.filter { it.profileId == p.id },
+                                d.assessments.find { it.id == selection }, saving = busy) { e ->
+                                activity.action {
+                                    activity.repo.update(vocabularyGeneration) { old -> old.copy(assessments = old.assessments.filterNot { it.id == e.id } + e) }
+                                    withContext(Dispatchers.Main) { page = "home" }
+                                }
+                            }
+                        }
                         "transfer" ->
                             TransferForm(p, d) { transform ->
                                 update(transform)
@@ -452,14 +510,6 @@ fun StreberAlarm(activity: MainActivity) {
                                 update { it.copy(exceptions = it.exceptions + e) }
                                 page = "timetable"
                             }
-                        "rules" ->
-                            RulesPage(p, d) { i ->
-                                update {
-                                    it.copy(
-                                        graduation = it.graduation + ("${p.id}:${i.procedure}" to i)
-                                    )
-                                }
-                            }
                         "scanner" -> ScannerPage(activity, selection) { open("exam", selection) }
                         "document" ->
                             d.documents
@@ -473,9 +523,8 @@ fun StreberAlarm(activity: MainActivity) {
                                         p,
                                         d,
                                         { open("exam", it) },
-                                        { open("plan") },
+                                        { open("examGrade", "new:") },
                                         { open("timetable") },
-                                        { open("estimate", it) },
                                     )
                                 1 ->
                                     SubjectsPage(
@@ -483,179 +532,26 @@ fun StreberAlarm(activity: MainActivity) {
                                         d,
                                         { open("subject", it) },
                                         { open("subjectEdit") },
-                                        { open("transfer") },
+                                        { open("examGrade", "new:") },
                                         { id ->
-                                            activity.action { activity.repo.deleteSubject(id) }
+                                            val generation = activity.repo.vocabularyGeneration.value
+                                            activity.action { activity.repo.deleteSubject(id, generation) }
                                         },
                                     )
-                                2 ->
+                                2 -> learningState.SaveableStateProvider("learning:${p.id}") {
                                     LearningPage(
                                         activity,
                                         p,
                                         d,
                                         { open("exam", it) },
                                         { open("plan") },
-                                        { open("examEdit", "new:") },
                                         { open("examGrade", it) },
-                                        { open("estimate", it) },
+                                        { open("vocabulary") },
+                                        { open("flashcards") },
                                     )
+                                }
                             }
                     }
-            }
-        }
-    }
-}
-
-@Composable
-fun TodayPage(
-    a: MainActivity,
-    p: Profile,
-    d: SchoolData,
-    exam: (String) -> Unit,
-    add: () -> Unit,
-    timetable: () -> Unit,
-    estimate: (String) -> Unit,
-) {
-    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(Unit) {
-        while (true) {
-            delay(1000)
-            now = System.currentTimeMillis()
-        }
-    }
-    val today = Instant.ofEpochMilli(now).atZone(ZoneId.systemDefault()).toLocalDate()
-    val subjects = d.subjects.filter { it.profileId == p.id }
-    val upcoming =
-        d.assessments
-            .filter { e ->
-                subjects.any { it.id == e.subjectId } &&
-                    e.stage == Stage.PLANNED &&
-                    e.date >= today.toString()
-            }
-            .sortedBy { it.date + it.time.orEmpty() }
-    Page("Dein Tag", today.format(DateTimeFormatter.ofPattern("EEEE, d. MMMM", Locale.GERMAN))) {
-        val overview = remember(p, d) { GradeOverviewCalculator.calculate(p, d) }
-        OverallAveragePanel(p, overview)
-        val running = d.studies.firstOrNull { it.end == null }
-        if (running != null)
-            Panel("Lerntimer läuft") {
-                Text(
-                    d.assessments.find { it.id == running.assessmentId }?.title.orEmpty(),
-                    fontWeight = FontWeight.Bold,
-                )
-                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    StudyClock(running.seconds(now), true) { a.action { a.repo.stop() } }
-                }
-                if (running.boot != a.repo.boot())
-                    Text("Gerät neu gestartet: Bitte die Lernzeit nach dem Stoppen prüfen.")
-                TextButton({ exam(running.assessmentId) }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) { Text("Zur Lernkarte") }
-            }
-        EstimatePrompts.due(d, SchoolZonedTime.fromEpochMillis(now, ZoneId.systemDefault().id))
-            .firstOrNull()
-            ?.let { e ->
-                Panel("Wie lief deine Probe?") {
-                    Text(e.title)
-                    Action("Gefühlte Note eintragen", { estimate(e.id) })
-                }
-            }
-        upcoming.firstOrNull()?.let { e ->
-            Text(
-                "Deine nächste Probe",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-            )
-            ExamCard(d, e) { exam(e.id) }
-            if (running == null) Action("Jetzt lernen", { exam(e.id) })
-        } ?: Panel { Text("Gerade ist keine Probe geplant. Genieße deine freie Zeit!") }
-        OutlinedButton(
-            add,
-            Modifier.fillMaxWidth(),
-            shape =
-                if (LocalLook.current == AppLook.HACKER || LocalLook.current == AppLook.PIXEL)
-                    lookShape(0.dp)
-                else ButtonDefaults.outlinedShape, colors = bayernButtonColors(ButtonDefaults.outlinedButtonColors())) {
-            Icon(Icons.Outlined.Add, null)
-            Text("Probe planen")
-        }
-        val lessons =
-            remember(p, d.timetables, d.daysOff, d.exceptions, d.subjects, today) {
-                dailyLessons(d, p, today)
-            }
-        Panel("Heute im Unterricht") {
-            if (lessons.isEmpty())
-                Text(
-                    if (d.timetables.none { it.profileId == p.id })
-                        "Dein Stundenplan fehlt noch. Trage ihn einmal ein."
-                    else "Heute ist kein Unterricht eingetragen."
-                )
-            lessons.forEach { lesson ->
-                val subject = subjects.find { it.id == lesson.subjectId }
-                val average = subject?.let { Grades.calculate(p, it, d.assessments).value }
-                Surface(
-                    color = if (lesson.isBreak) BreakTint else themedSubjectTint(subject),
-                    shape = lookShape(16.dp),
-                    modifier = Modifier.fillMaxWidth().testTag("today-lesson-${lesson.id}"),
-                ) {
-                    Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text(
-                                if (lesson.isBreak) "Pause" else subject?.name.orEmpty(),
-                                fontWeight = FontWeight.Bold,
-                            )
-                            Text(
-                                "${lesson.start}–${lesson.end}",
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                        }
-                        if (!lesson.isBreak && average != null)
-                            Text("Ø ${number(average)}", fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-            TextButton(timetable, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) { Text("Stundenplan") }
-        }
-        if (!ReminderScheduler.allowed(a))
-            TextButton({ a.requestNotifications() }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) { Text("Lernerinnerungen einschalten") }
-    }
-}
-
-@Composable
-fun ExamCard(d: SchoolData, e: Assessment, click: () -> Unit) {
-    val s = d.subjects.find { it.id == e.subjectId }
-    Card(
-        onClick = click,
-        modifier = Modifier.fillMaxWidth().monitor().testTag("exam-${e.id}"),
-        border = lookBorder(),
-        colors = CardDefaults.cardColors(containerColor = themedSubjectTint(s), contentColor = Ink),
-        shape = monitorShape(18.dp),
-    ) {
-        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(
-                    s?.name.orEmpty(),
-                    Modifier.weight(1f),
-                    color = Ink,
-                    fontWeight = FontWeight.Bold,
-                )
-                Text(dateLabel(e.date), style = MaterialTheme.typography.labelLarge)
-            }
-            if (e.title != "${e.kind.label} · ${s?.name}")
-                Text(e.title, style = MaterialTheme.typography.titleMedium)
-            Text(
-                "${e.kind.label} · ${e.stage.label}${e.actual?.let{" · $it"}.orEmpty()}",
-                style = MaterialTheme.typography.bodySmall,
-            )
-            if (e.stage == Stage.PLANNED && s != null) {
-                if (d.timetables.none { it.profileId == s.profileId })
-                    Text(
-                        "Fülle deinen Stundenplan aus. Dann zählen wir die Stunden bis zum Test.",
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                else
-                    Text(
-                        "Noch ${Lessons.remaining(d,e,LocalDateTime.now()).size}× ${s.name}",
-                        fontWeight = FontWeight.Medium,
-                    )
             }
         }
     }
@@ -667,14 +563,13 @@ fun SubjectsPage(
     d: SchoolData,
     open: (String) -> Unit,
     add: () -> Unit,
-    transfer: () -> Unit,
+    grade: () -> Unit,
     delete: (String) -> Unit,
 ) {
     var subjectMenu by remember { mutableStateOf<Subject?>(null) }
     var pendingDelete by remember { mutableStateOf<Subject?>(null) }
     Page("Meine Noten") {
-        if (p.school == School.GRUNDSCHULE) TransferPanel(p, d, transfer)
-        else GradeOverviewPanel(p, d)
+        Action("Note eintragen", grade, d.subjects.any { it.profileId == p.id })
         d.subjects
             .filter { it.profileId == p.id }
             .alphabetical()
@@ -701,26 +596,7 @@ fun SubjectsPage(
                         Spacer(Modifier.width(14.dp))
                         Column(Modifier.weight(1f)) {
                             Text(s.name, fontWeight = FontWeight.Bold)
-                            Text(
-                                if (p.school == School.GRUNDSCHULE)
-                                    if (Transfer.subjectIndex(s.name) != null) "Übertrittsfach"
-                                    else "Weiteres Fach"
-                                else subjectCategory(s),
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                            Text(
-                                if (
-                                    calc.value == null &&
-                                        d.assessments.any {
-                                            it.subjectId == s.id &&
-                                                it.actual != null &&
-                                                it.stage != Stage.CANCELLED
-                                        }
-                                )
-                                    "Für deinen Schnitt fehlen Angaben"
-                                else learningHint(p.points, calc.value),
-                                style = MaterialTheme.typography.bodyMedium,
-                            )
+                            Text("${d.assessments.count { it.subjectId == s.id && it.actual != null && it.stage != Stage.CANCELLED }} Noten", style = MaterialTheme.typography.bodySmall)
                         }
                         Text(
                             number(calc.value),
@@ -730,26 +606,7 @@ fun SubjectsPage(
                     }
                 }
             }
-        Text(
-            "Die Hinweise helfen dir beim Lernen. Sie sind keine Versetzungsentscheidung.",
-            style = MaterialTheme.typography.bodySmall,
-        )
         Action("Fach hinzufügen", add)
-        HelpPanel("Was bedeuten die Farben?") {
-            Text(
-                if (p.school == School.GRUNDSCHULE)
-                    if (LocalLook.current == AppLook.BAYERN) "Rot: Übertrittsfach (Deutsch, Mathematik, HSU)" else "Violett: Übertrittsfach (Deutsch, Mathematik, HSU)"
-                else if (LocalLook.current == AppLook.BAYERN) "Rot: Haupt-/Kernfach" else "Violett: Haupt-/Kernfach"
-            )
-            if (p.school != School.GRUNDSCHULE)
-                Text(
-                    "Blau: weiteres Vorrückungsfach – zählt für das Vorrücken in die nächste Klasse."
-                )
-            Text("Grau: weiteres Fach – kein Vorrückungsfach.")
-            Text(
-                if (LocalLook.current == AppLook.BAYERN) "Ist ein Fach beides, bleibt es rot. Die Farben folgen der Einordnung im Fach und bewerten keine Noten." else "Ist ein Fach beides, bleibt es violett. Die Farben folgen der Einordnung im Fach und bewerten keine Noten."
-            )
-        }
     }
     subjectMenu?.let { subject ->
         AlertDialog(
@@ -784,240 +641,6 @@ fun SubjectsPage(
                 }
             },
             dismissButton = { TextButton({ pendingDelete = null }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) { Text("Abbrechen") } },
-        )
-    }
-}
-
-@Composable
-fun SubjectPage(
-    p: Profile,
-    s: Subject,
-    d: SchoolData,
-    edit: () -> Unit,
-    exam: (String) -> Unit,
-    add: () -> Unit,
-    official: () -> Unit,
-) {
-    var scenario by rememberSaveable { mutableStateOf(false) }
-    val calc = Grades.calculate(p, s, d.assessments, scenario)
-    Page(s.name, subjectCategory(s)) {
-        Panel(if (scenario) "Mit deinen geschätzten Noten" else "Dein Notenschnitt") {
-            Text(
-                number(calc.value) + (if (p.points) " Punkte" else ""),
-                style = MaterialTheme.typography.displayMedium,
-                color = Green,
-            )
-            Check("Mit meinen geschätzten Noten rechnen", scenario) { scenario = it }
-            Text("Das ist dein berechneter Schnitt, keine Zeugnisnote.")
-            if (calc.warnings.isNotEmpty())
-                Text("Für den Schnitt fehlen noch Angaben. Schau unter „So wird gerechnet“ nach.")
-            HelpPanel("So wird gerechnet") {
-                Text(calc.explanation)
-                calc.warnings.forEach { Text(it, style = MaterialTheme.typography.bodySmall) }
-                calc.source?.let { Source(it) }
-            }
-        }
-        Action("Test oder Note hinzufügen", add)
-        OutlinedButton(edit, Modifier.fillMaxWidth(), colors = bayernButtonColors(ButtonDefaults.outlinedButtonColors())) { Text("Fach und Gewichtungen bearbeiten") }
-        OutlinedButton(official, Modifier.fillMaxWidth(), colors = bayernButtonColors(ButtonDefaults.outlinedButtonColors())) { Text("Offizielle Note eintragen") }
-        d.officials
-            .filter { it.subjectId == s.id }
-            .forEach { Text("${it.period}: ${it.value ?: "unbekannt"}") }
-        Text("Notenverlauf", style = MaterialTheme.typography.titleLarge)
-        d.assessments
-            .filter { it.subjectId == s.id }
-            .sortedByDescending { it.date }
-            .forEach { e -> ExamCard(d, e) { exam(e.id) } }
-    }
-}
-
-@Composable
-fun ExamsPage(p: Profile, d: SchoolData, open: (String) -> Unit, add: () -> Unit) {
-    var filter by rememberSaveable { mutableStateOf("Alle") }
-    Page("Deine Tests", "Planen, lernen, Note eintragen.") {
-        Action("Test hinzufügen", add, d.subjects.any { it.profileId == p.id })
-        Pick("Anzeigen", filter, listOf("Alle") + Stage.entries.map { it.label }) { filter = it }
-        val rows =
-            d.assessments
-                .filter { e ->
-                    d.subjects.any { it.id == e.subjectId && it.profileId == p.id } &&
-                        (filter == "Alle" || e.stage.label == filter)
-                }
-                .sortedByDescending { it.date }
-        if (rows.isEmpty())
-            Text("Hier erscheinen deine geplanten und nachträglich eingetragenen Leistungen.")
-        rows.forEach { e -> ExamCard(d, e) { open(e.id) } }
-    }
-}
-
-@Composable
-fun ExamPage(
-    a: MainActivity,
-    d: SchoolData,
-    e: Assessment,
-    edit: () -> Unit,
-    grade: () -> Unit,
-    estimate: () -> Unit,
-    scan: () -> Unit,
-    document: (String) -> Unit,
-    delete: () -> Unit,
-) {
-    var confirm by remember { mutableStateOf(false) }
-    var correction by remember { mutableStateOf<Study?>(null) }
-    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(Unit) {
-        while (true) {
-            delay(1000)
-            now = System.currentTimeMillis()
-        }
-    }
-    val sessions = d.studies.filter { it.assessmentId == e.id }
-    var editMaterial by rememberSaveable(e.id) { mutableStateOf(false) }
-    var section by rememberSaveable(e.id) { mutableStateOf("Lernstoff") }
-    Page("Deine Probe") {
-        ProbeCard(a, d, e, grade, estimate)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            TextButton(edit, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) {
-                Icon(Icons.Outlined.Edit, null, Modifier.size(18.dp))
-                Spacer(Modifier.width(6.dp))
-                Text("Test bearbeiten")
-            }
-            TextButton({ confirm = true }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) {
-                Text("Löschen", color = if (LocalLook.current == AppLook.BAYERN) Color.White else MaterialTheme.colorScheme.error)
-            }
-        }
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("Lernstoff", "Unterlagen", "Lernzeiten").forEach { name ->
-                FilterChip(
-                    selected = section == name,
-                    onClick = { section = name },
-                    label = { Text(name) },
-                )
-            }
-        }
-        if (section == "Lernstoff")
-            Panel {
-                Text(e.learningNotes.ifBlank { "Was kommt dran? Ergänze deinen Lernstoff." })
-                TextButton({ editMaterial = true }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) {
-                    Text(
-                        if (e.learningNotes.isBlank()) "Lernstoff ergänzen" else "Lernstoff ändern"
-                    )
-                }
-            }
-        if (section == "Lernzeiten")
-            Panel {
-                if (sessions.isEmpty())
-                    Text("Deine Lernzeiten erscheinen hier, sobald du die Uhr startest.")
-                sessions
-                    .sortedByDescending { it.start }
-                    .forEach { s ->
-                        Text(
-                            "${Instant.ofEpochMilli(s.start).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("dd.MM. HH:mm"))} · ${s.seconds(now)/60} Min.${if(s.end==null)" · läuft" else ""}"
-                        )
-                        if (s.correction.isNotBlank())
-                            Text(s.correction, style = MaterialTheme.typography.bodySmall)
-                        if (s.end != null)
-                            TextButton({ correction = s }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) { Text("Lernzeit ändern") }
-                    }
-            }
-        if (section == "Unterlagen")
-            Panel {
-                AssessmentScannerButton(a, e.id, "Arbeit scannen", scan)
-                OutlinedButton({ a.import(e.id) }, Modifier.fillMaxWidth(), colors = bayernButtonColors(ButtonDefaults.outlinedButtonColors())) {
-                    Text("Bild oder PDF hinzufügen")
-                }
-                d.documents
-                    .filter { it.assessmentId == e.id }
-                    .forEach { doc ->
-                        TextButton({ document(doc.id) }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) {
-                            Icon(Icons.Outlined.Description, null)
-                            Spacer(Modifier.width(8.dp))
-                            Text(doc.name)
-                        }
-                    }
-            }
-    }
-    if (editMaterial) {
-        var text by rememberSaveable(e.id) { mutableStateOf(e.learningNotes) }
-        AlertDialog(
-            onDismissRequest = { editMaterial = false },
-            title = { Text("Dein Lernstoff") },
-            text = { Field("Was kommt / kam dran?", text, 3) { text = it } },
-            confirmButton = {
-                TextButton({
-                    a.action {
-                        a.repo.update { current ->
-                            current.copy(
-                                assessments =
-                                    current.assessments.map { old ->
-                                        if (old.id == e.id) old.copy(material = text, notes = "")
-                                        else old
-                                    }
-                            )
-                        }
-                    }
-                    editMaterial = false
-                }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) {
-                    Text("Lernstoff speichern")
-                }
-            },
-            dismissButton = { TextButton({ editMaterial = false }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) { Text("Abbrechen") } },
-        )
-    }
-    if (confirm)
-        AlertDialog(
-            onDismissRequest = { confirm = false },
-            title = { Text("Prüfung löschen?") },
-            text = {
-                Text("Noten, Lernphasen und zugehörige Dokumente werden aus der App entfernt.")
-            },
-            confirmButton = {
-                TextButton({
-                    confirm = false
-                    delete()
-                }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) {
-                    Text("Löschen")
-                }
-            },
-            dismissButton = { TextButton({ confirm = false }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) { Text("Abbrechen") } },
-        )
-    correction?.let { s ->
-        var minutes by remember { mutableStateOf((s.seconds(now) / 60).toString()) }
-        var reason by remember { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = { correction = null },
-            title = { Text("Lernzeit berichtigen") },
-            text = {
-                Column {
-                    Field("Dauer in Minuten", minutes) { minutes = it }
-                    Field("Warum änderst du die Zeit?", reason) { reason = it }
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    {
-                        a.action {
-                            a.repo.update {
-                                it.copy(
-                                    studies =
-                                        it.studies.map { old ->
-                                            if (old.id == s.id)
-                                                old.copy(
-                                                    correctedMinutes = minutes.toInt(),
-                                                    correction = reason,
-                                                )
-                                            else old
-                                        }
-                                )
-                            }
-                        }
-                        correction = null
-                    },
-                    enabled = minutes.toIntOrNull() in 0..10080 && reason.isNotBlank(), colors = bayernButtonColors(ButtonDefaults.textButtonColors())) {
-                    Text("Speichern")
-                }
-            },
-            dismissButton = { TextButton({ correction = null }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) { Text("Abbrechen") } },
         )
     }
 }
@@ -1146,90 +769,128 @@ fun TimetablePage(
 fun SettingsPage(
     a: MainActivity,
     d: SchoolData,
+    demo: Boolean,
+    loadDemo: () -> Unit,
+    returnReal: () -> Unit,
+    deleteDemo: () -> Unit,
     newProfile: () -> Unit,
     switch: (String) -> Unit,
     rules: () -> Unit,
     timetable: () -> Unit,
+    appearance: () -> Unit,
+    editSubject: (String) -> Unit = {},
+    official: (String) -> Unit = {},
+    transfer: () -> Unit = {},
 ) {
     var mode by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmed by remember { mutableStateOf(false) }
-    Page("Einstellungen", "Deine Daten bleiben bei dir.") {
-        AppearanceSettings(a.appearance)
-        Panel("Schulprofil") {
-            val basicLabels =
-                d.profiles.map {
-                    "${it.school.label} · ${it.grade}. Klasse · ${it.year} · ${it.track} · ${it.term}"
-                }
-            val labels =
-                basicLabels.mapIndexed { index, label ->
-                    if (basicLabels.count { it == label } > 1) "$label · Profil ${index + 1}"
-                    else label
-                }
-            Pick(
-                "Dein Schuljahr",
-                labels.getOrNull(d.profiles.indexOfFirst { it.id == d.activeProfileId }).orEmpty(),
-                labels,
-            ) { label ->
-                d.profiles.getOrNull(labels.indexOf(label))?.let { switch(it.id) }
+    var confirmDemoDelete by remember { mutableStateOf(false) }
+    val busy by a.busy.collectAsState()
+    Page("Einstellungen", "Mach die App zu deiner.") {
+        Panel("Testdaten") {
+            Text(if (demo) "Demo aktiv: Alle Änderungen bleiben im fiktiven Beispiel. Deine echten Daten sind separat gespeichert."
+                else "Fiktiver Stundenplan, Noten, Lernstoff, Vokabeln und zwei Beispiel-Scans. Deine Daten bleiben separat gespeichert.")
+            Action("Testdaten laden", loadDemo, !busy)
+            if (demo) Action("Echte Daten anzeigen", returnReal, !busy)
+            OutlinedButton({ confirmDemoDelete = true }, Modifier.fillMaxWidth(),
+                enabled = !busy,
+                colors = bayernButtonColors(ButtonDefaults.outlinedButtonColors())) {
+                Text("Testdaten löschen")
             }
-            d.active()?.let { Text("Dein Schulzweig: ${Defaults.trackLabel(it.school, it.track)}") }
-            Action("Neue Klasse / neues Schuljahr", newProfile)
-            Text("Deine alten Schuljahre bleiben gespeichert.")
         }
-        Panel("Erinnerungen") {
-            Text(
-                if (ReminderScheduler.allowed(a)) "Benachrichtigungen erlaubt"
-                else "Benachrichtigungen ausgeschaltet"
+        if (d.active() != null) {
+            SettingsHero(
+                "Stundenplan", "Ansehen und bearbeiten", Icons.Outlined.CalendarMonth,
+                "settings-timetable", timetable,
             )
-            Text(
-                if (ReminderScheduler.exact(a)) "Pünktliche Erinnerungen erlaubt"
-                else "Ungefähre Zustellung – Android kann Hinweise verzögern."
-            )
-            Action("Benachrichtigungen einstellen") { a.requestNotifications() }
-            OutlinedButton({ a.requestExact() }, Modifier.fillMaxWidth(), colors = bayernButtonColors(ButtonDefaults.outlinedButtonColors())) {
-                Text("Pünktliche Erinnerungen erlauben")
-            }
-            Text(
-                "21 und 14 Tage vorher; täglich vom 7. bis zum letzten Tag vor der Prüfung. Gebündelt um 16 Uhr in der lokalen Gerätezeit."
+            SettingsHero(
+                "Dein Look", "Farben und Style auswählen", Icons.Outlined.Palette,
+                "settings-look", appearance,
             )
         }
-        Panel("Datensicherung") {
-            Text(
-                "Ein Backup ist eine Sicherheitskopie deiner App. Es enthält auch deine Bilder. Merke dir das Passwort gut: Ohne Passwort kannst du die Kopie nicht öffnen."
-            )
-            Action("Backup exportieren") {
-                mode = "export"
-                password = ""
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            SettingsSection("Fächer & Gewichtungen") {
+                d.subjects.filter { it.profileId == d.activeProfileId }.alphabetical().forEach { subject ->
+                    SettingsLink(subject.name) { editSubject(subject.id) }
+                }
             }
-            OutlinedButton(
-                {
-                    mode = "restore"
+            SettingsSection("Offizielle Ergebnisse") {
+                d.subjects.filter { it.profileId == d.activeProfileId }.alphabetical().forEach { subject ->
+                    SettingsLink(subject.name) { official(subject.id) }
+                }
+                if (d.active()?.school == School.GRUNDSCHULE) SettingsLink("Übertrittsergebnis", transfer)
+            }
+            SettingsSection("Erinnerungen") {
+                Text(
+                    if (ReminderScheduler.allowed(a)) "Benachrichtigungen erlaubt"
+                    else "Benachrichtigungen ausgeschaltet"
+                )
+                Text(
+                    if (ReminderScheduler.exact(a)) "Pünktliche Erinnerungen erlaubt"
+                    else "Ungefähre Zustellung – Android kann Hinweise verzögern."
+                )
+                Action("Benachrichtigungen einstellen") { a.requestNotifications() }
+                OutlinedButton({ a.requestExact() }, Modifier.fillMaxWidth(), colors = bayernButtonColors(ButtonDefaults.outlinedButtonColors())) {
+                    Text("Pünktliche Erinnerungen erlauben")
+                }
+                Text(
+                    "21 und 14 Tage vorher; täglich vom 7. bis zum letzten Tag vor der Prüfung. Gebündelt um 16 Uhr in der lokalen Gerätezeit."
+                )
+            }
+            SettingsSection("Datensicherung") {
+                if (demo) {
+                    Text("Backup und Wiederherstellung sind in der Demo ausgeschaltet. Wechsle zuerst zu deinen echten Daten.")
+                } else {
+                Text(
+                    "Ein Backup ist eine Sicherheitskopie deiner App. Es enthält auch deine Bilder. Merke dir das Passwort gut: Ohne Passwort kannst du die Kopie nicht öffnen."
+                )
+                Action("Backup exportieren") {
+                    mode = "export"
                     password = ""
-                    confirmed = false
-                },
-                Modifier.fillMaxWidth(), colors = bayernButtonColors(ButtonDefaults.outlinedButtonColors())) {
-                Text("Backup wiederherstellen")
+                }
+                OutlinedButton(
+                    {
+                        mode = "restore"
+                        password = ""
+                        confirmed = false
+                    },
+                    Modifier.fillMaxWidth(), colors = bayernButtonColors(ButtonDefaults.outlinedButtonColors())) {
+                    Text("Backup wiederherstellen")
+                }
+                }
             }
-        }
-        OutlinedButton(timetable, Modifier.fillMaxWidth(), colors = bayernButtonColors(ButtonDefaults.outlinedButtonColors())) { Text("Stundenplan bearbeiten") }
-        OutlinedButton(rules, Modifier.fillMaxWidth(), colors = bayernButtonColors(ButtonDefaults.outlinedButtonColors())) { Text("Rechtsgrundlagen und Regelprüfung") }
-        HelpPanel("Wer kann meine Daten sehen?") {
-            Text(
-                "NotenManager speichert Profile, Noten, Lernzeiten und Dokumente lokal im privaten App-Speicher. Kein Konto, keine Werbung, keine eigene App-Analyse, keine Cloud-KI. Automatische Android-Cloud-Sicherungen und Geräteübertragung sind deaktiviert."
-            )
-            Text(
-                "Den Speicherort exportierter Backups wählst du selbst. Dort kann ein von dir gewählter Dateidienst beteiligt sein. Der lokale Scanner arbeitet ohne Übermittlung von Bildern oder Nutzungsdaten. Optional steht Google ML Kit zur Verfügung: Erst nach Auswahl und Bestätigung des Hinweises wird das SDK initialisiert. Google kann Geräte- und Appinformationen, Kennungen, Diagnose- und Nutzungsdaten verarbeiten; Scans selbst werden laut Google auf dem Gerät verarbeitet. Die erste Nutzung kann einen Download benötigen. Bereits bei Google entstandene Diagnosedaten werden durch spätere Wahl des lokalen Scanners nicht zurückgerufen."
-            )
-            Text(
-                "Beim Deinstallieren gehen lokale Daten verloren, sofern du zuvor kein eigenes Backup exportiert hast. Externe Quellenlinks öffnen deinen Browser."
-            )
-            Text(
-                "Entwicklungsversion ${BuildConfig.VERSION_NAME} · Regeln ${Rules.VERSION} · Quellenprüfung ${Rules.REVIEWED}",
-                style = MaterialTheme.typography.bodySmall,
-            )
+            SettingsLink("Datenschutz & Rechtsgrundlagen", rules)
+            SettingsSection("Schuljahr") {
+                val basicLabels =
+                    d.profiles.map {
+                        "${it.school.label} · ${it.grade}. Klasse · ${it.year} · ${it.track} · ${it.term}"
+                    }
+                val labels =
+                    basicLabels.mapIndexed { index, label ->
+                        if (basicLabels.count { it == label } > 1) "$label · Profil ${index + 1}"
+                        else label
+                    }
+                Pick(
+                    "Dein Schuljahr",
+                    labels.getOrNull(d.profiles.indexOfFirst { it.id == d.activeProfileId }).orEmpty(),
+                    labels,
+                ) { label ->
+                    d.profiles.getOrNull(labels.indexOf(label))?.let { switch(it.id) }
+                }
+                d.active()?.let { Text("Dein Schulzweig: ${Defaults.trackLabel(it.school, it.track)}") }
+                Action("Neue Klasse / neues Schuljahr", newProfile)
+                Text("Deine alten Schuljahre bleiben gespeichert.")
+            }
         }
     }
+    if (confirmDemoDelete) AlertDialog(
+        onDismissRequest = { confirmDemoDelete = false },
+        title = { Text("Testdaten löschen?") },
+        text = { Text("Nur die fiktive Demo und ihre Beispiel-Scans werden entfernt. Deine echten Schuljahre bleiben erhalten.") },
+        confirmButton = { TextButton({ confirmDemoDelete = false; deleteDemo() }, enabled = !busy) { Text("Jetzt löschen") } },
+        dismissButton = { TextButton({ confirmDemoDelete = false }) { Text("Abbrechen") } },
+    )
     if (mode.isNotEmpty())
         AlertDialog(
             onDismissRequest = {
@@ -1248,11 +909,11 @@ fun SettingsPage(
                         visualTransformation = PasswordVisualTransformation(),
                         singleLine = true,
                     )
-                    if (mode == "restore")
+                    if (mode == "restore") {
                         Check("Vorhandene Daten vollständig durch das Backup ersetzen", confirmed) {
                             confirmed = it
                         }
-                    else Text("Mindestens 8 Zeichen. Bewahre das Passwort sicher auf.")
+                    } else Text("Mindestens 8 Zeichen. Bewahre das Passwort sicher auf.")
                 }
             },
             confirmButton = {

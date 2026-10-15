@@ -72,6 +72,34 @@ class AbiturTest {
     }
 
     @Test
+    fun advancedCourseMustBeOneOfTheFiveExams() {
+        val i = fixture()
+        val withoutAdvancedExam =
+            i.copy(
+                courses =
+                    i.courses.map { course ->
+                        when (course.name) {
+                            "Physik" -> course.copy(included = listOf(true, true, true, false))
+                            "Biologie" -> course.copy(included = List(4) { true })
+                            else -> course
+                        }
+                    },
+                exams =
+                    i.exams.map { exam ->
+                        if (exam.name == "Physik") exam.copy(name = "Biologie") else exam
+                    },
+            )
+        assertEquals(38, withoutAdvancedExam.courses.sumOf { it.included.count { b -> b } })
+        val result = Rules.certificate(p, withoutAdvancedExam)
+        assertEquals(Verdict.RISK, result.verdict, result.details.joinToString())
+        assertNull(result.value)
+        assertTrue(
+            result.details.any { it.contains("Leistungsfach") && it.contains("Abiturprüfungsfach") }
+        )
+        assertTrue(law("BayGSO-48") in result.sources)
+    }
+
+    @Test
     fun zeroExamFailsDespiteExcellentOverallScore() {
         val i = fixture()
         val result =

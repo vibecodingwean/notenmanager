@@ -88,14 +88,14 @@ fun GradeAttachments(a: MainActivity, d: SchoolData, e: Assessment) {
         )
     if (scanning)
         Dialog(
-            onDismissRequest = { scanning = false },
+            onDismissRequest = { if (a.repo.isDemo.value) a.repo.closeDemoScansForExam(e.id); scanning = false },
             properties =
                 DialogProperties(usePlatformDefaultWidth = false, dismissOnClickOutside = false),
         ) {
             // Keep the grade form mounted behind the camera: its unsaved choice survives the scan.
             Surface(Modifier.fillMaxSize()) {
                 Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
-                    TextButton({ scanning = false }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) {
+                    TextButton({ if (a.repo.isDemo.value) a.repo.closeDemoScansForExam(e.id); scanning = false }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) {
                         Icon(Icons.AutoMirrored.Outlined.ArrowBack, null)
                         Spacer(Modifier.width(8.dp))
                         Text("Zurück zur Note")

@@ -5,75 +5,35 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import de.streberalarm.core.*
 import java.time.LocalDate
 
 @Composable
-fun QuickPlanForm(p: Profile, subjects: List<Subject>, save: (Assessment) -> Unit) {
-    var selected by rememberSaveable { mutableStateOf("") }
-    var date by rememberSaveable { mutableStateOf(LocalDate.now().plusDays(7).toString()) }
-    var kind by rememberSaveable { mutableStateOf(kinds(p).first()) }
+fun QuickPlanForm(p: Profile, subjects: List<Subject>, existing: Assessment? = null, saving: Boolean = false, save: (Assessment) -> Unit) {
+    var selected by rememberSaveable(existing?.id) { mutableStateOf(existing?.subjectId.orEmpty()) }
+    var date by rememberSaveable(existing?.id) { mutableStateOf(existing?.date ?: LocalDate.now().plusDays(7).toString()) }
+    var topic by rememberSaveable(existing?.id) { mutableStateOf(existing?.learningNotes.orEmpty()) }
     var error by rememberSaveable { mutableStateOf("") }
-    val subject = subjects.find { it.id == selected }
-    Page(
-        if (subject == null) "In welchem Fach?" else "Wann ist deine Probe?",
-        if (subject == null) "Tippe dein Fach an." else subject.name,
-    ) {
-        if (subject == null) {
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-                maxItemsInEachRow = 2,
-            ) {
-                subjects.alphabetical().forEach { s ->
-                    FilledTonalButton(
-                        { selected = s.id },
-                        modifier =
-                            Modifier.weight(1f)
-                                .heightIn(min = 64.dp)
-                                .testTag("plan-subject-${s.id}"),
-                        colors =
-                            bayernButtonColors(ButtonDefaults.filledTonalButtonColors(
-                                containerColor = themedSubjectTint(s),
-                                contentColor = Ink,
-                            )),
-                    ) {
-                        Text(s.name)
-                    }
-                }
-            }
-            if (subjects.isEmpty()) Text("Lege zuerst unter Meine Noten ein Fach an.")
-        } else {
+    Page(if (existing == null) "Prüfung planen" else "Prüfung bearbeiten") {
+        Panel {
             DateField("Datum", date) { date = it }
-            Pick("Was ist es?", kind.label, kinds(p).alphabetical().map { it.label }) { label ->
-                kind = kinds(p).first { it.label == label }
+            Pick("Fach", subjects.find { it.id == selected }?.name ?: "Bitte wählen", subjects.alphabetical().map { it.name }) { name ->
+                selected = subjects.first { it.name == name }.id
             }
-            if (error.isNotEmpty()) Text(error, color = MaterialTheme.colorScheme.error)
-            Action("Probe planen") {
+            Field("Thema (optional)", topic, 2) { topic = it }
+            if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error)
+            Action("Speichern", {
                 runCatching {
-                        val day = LocalDate.parse(date)
-                        require(
-                            day >= LocalDate.of(p.year, 8, 1) &&
-                                day <= LocalDate.of(p.year + 1, 9, 30)
-                        )
-                        save(
-                            Assessment(
-                                subjectId = subject.id,
-                                title = "${kind.label} · ${subject.name}",
-                                date = date,
-                                kind = kind,
-                            )
-                        )
-                    }
-                    .onFailure { error = "Wähle einen Tag in deinem Schuljahr." }
-            }
-            Text(
-                "Den Lernstoff kannst du danach auf deiner Karte ergänzen.",
-                style = MaterialTheme.typography.bodySmall,
-            )
-            TextButton({ selected = "" }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) { Text("Anderes Fach wählen") }
+                    val subject = requireNotNull(subjects.find { it.id == selected })
+                    val day = LocalDate.parse(date)
+                    require(day >= LocalDate.of(p.year, 8, 1) && day <= LocalDate.of(p.year + 1, 9, 30))
+                    val original = existing ?: Assessment(subjectId = subject.id, title = "Prüfung · ${subject.name}", date = date, kind = kinds(p).first())
+                    save(original.copy(subjectId = selected, date = date,
+                        time = original.time.takeIf { date == original.date },
+                        material = if (topic == existing?.learningNotes) original.material else topic))
+                }.onFailure { error = "Bitte Fach und Datum im Schuljahr prüfen." }
+            }, !saving)
         }
     }
 }

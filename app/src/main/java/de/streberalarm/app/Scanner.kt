@@ -22,16 +22,39 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 import androidx.exifinterface.media.ExifInterface
 import de.streberalarm.core.*
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+/** Disabled outside deterministic scanner cancellation tests. */
+internal object ScanTiming {
+    @Volatile var beforePageWrite: (() -> Unit)? = null
+    @Volatile var afterPageWrite: (() -> Unit)? = null
+    @Volatile var afterPageWorker: (() -> Unit)? = null
+    @Volatile var beforePdfAttach: (() -> Unit)? = null
+    @Volatile var afterPdfAttach: (() -> Unit)? = null
+    @Volatile var demoPreview: ((Bitmap, Int) -> Unit)? = null
+    @Volatile var demoCropBounds: ((List<Float>) -> Unit)? = null
+}
+
 object ScanImages {
+    fun rotate(source: Bitmap, quarterTurns: Int): Bitmap {
+        val normalized = ((quarterTurns % 4) + 4) % 4
+        return if (normalized == 0) source else Bitmap.createBitmap(
+            source, 0, 0, source.width, source.height,
+            Matrix().apply { postRotate(normalized * 90f) }, true)
+    }
+
     fun load(file: File): Bitmap {
         val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeFile(file.path, options)
@@ -64,6 +87,12 @@ object ScanImages {
         return Bitmap.createBitmap(b, x, y, minOf(w, b.width - x), minOf(h, b.height - y))
     }
 
+    /** The worker must never own the preview bitmap, even for an unchanged full-page crop. */
+    fun detachedCrop(source: Bitmap, left: Float, top: Float, right: Float, bottom: Float): Bitmap {
+        val cropped = crop(source, left, top, right, bottom)
+        return if (cropped === source) requireNotNull(source.copy(Bitmap.Config.ARGB_8888, false)) else cropped
+    }
+
     fun pdf(pages: List<File>, output: File) {
         require(pages.isNotEmpty() && pages.size <= 30)
         val pdf = PdfDocument()
@@ -94,6 +123,19 @@ object ScanImages {
 
 @Composable
 fun ScannerPage(activity: MainActivity, examId: String, done: () -> Unit) {
+    val demo by activity.repo.isDemo.collectAsState()
+    if (demo && !activity.repo.isGradeDraft(examId)) DemoScannerPage(activity, examId, done)
+    else RealScannerPage(activity, examId, done)
+}
+
+@Composable
+private fun RealScannerPage(activity: MainActivity, examId: String, done: () -> Unit) {
+    val generation = remember(examId) { activity.repo.vocabularyGeneration.value }
+    val initialDemo = remember(examId) { activity.repo.isDemo.value }
+    val scanDir = remember(examId) {
+        if (activity.repo.isGradeDraft(examId)) File(activity.cacheDir, "grade-scan-$examId")
+        else activity.cacheDir
+    }
     var granted by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(activity, Manifest.permission.CAMERA) ==
@@ -106,25 +148,38 @@ fun ScannerPage(activity: MainActivity, examId: String, done: () -> Unit) {
         }
     var shots by rememberSaveable { mutableStateOf(arrayListOf<String>()) }
     var current by rememberSaveable { mutableStateOf<String?>(null) }
+    var turns by rememberSaveable { mutableIntStateOf(0) }
+    var cropLeft by rememberSaveable { mutableFloatStateOf(0f) }
+    var cropRight by rememberSaveable { mutableFloatStateOf(1f) }
+    var cropTop by rememberSaveable { mutableFloatStateOf(0f) }
+    var cropBottom by rememberSaveable { mutableFloatStateOf(1f) }
     var bitmap by remember { mutableStateOf<Bitmap?>(null) }
     var error by remember { mutableStateOf("") }
     var capture by remember { mutableStateOf<ImageCapture?>(null) }
-    var horizontal by remember { mutableStateOf(0f..1f) }
-    var vertical by remember { mutableStateOf(0f..1f) }
+    val horizontal = cropLeft..cropRight
+    val vertical = cropTop..cropBottom
     var saving by remember { mutableStateOf(false) }
     var cameraScreenActive by remember { mutableStateOf(true) }
+    fun active() = cameraScreenActive &&
+        activity.repo.isDemo.value == initialDemo &&
+        activity.repo.vocabularyGeneration.value == generation
     val providerFuture = remember { ProcessCameraProvider.getInstance(activity) }
-    LaunchedEffect(current) {
-        horizontal = 0f..1f
-        vertical = 0f..1f
+    LaunchedEffect(current, turns) {
         bitmap =
             current?.let { path ->
-                runCatching { withContext(Dispatchers.IO) { ScanImages.load(File(path)) } }
+                runCatching { withContext(Dispatchers.IO) {
+                    val source = ScanImages.load(File(path))
+                    if (turns == 0) source else ScanImages.rotate(source, turns).also { source.recycle() }
+                } }
                     .getOrElse {
                         error = "Aufnahme nicht verfügbar."
                         null
                     }
             }
+    }
+    DisposableEffect(bitmap) {
+        val displayed = bitmap
+        onDispose { displayed?.recycle() }
     }
     DisposableEffect(Unit) {
         onDispose {
@@ -181,19 +236,28 @@ fun ScannerPage(activity: MainActivity, examId: String, done: () -> Unit) {
                 {
                     val image = capture
                     if (image != null) {
-                        val file = File(activity.cacheDir, "scan-${id()}.jpg")
+                        scanDir.mkdirs()
+                        val file = File(scanDir, "scan-${id()}.jpg")
                         saving = true
                         image.takePicture(
                             ImageCapture.OutputFileOptions.Builder(file).build(),
                             ContextCompat.getMainExecutor(activity),
                             object : ImageCapture.OnImageSavedCallback {
                                 override fun onImageSaved(result: ImageCapture.OutputFileResults) {
+                                    if (!active()) {
+                                        file.delete()
+                                        return
+                                    }
+                                    turns = 0
+                                    cropLeft = 0f; cropRight = 1f
+                                    cropTop = 0f; cropBottom = 1f
                                     current = file.path
                                     saving = false
                                 }
 
                                 override fun onError(exception: ImageCaptureException) {
                                     file.delete()
+                                    if (!active()) return
                                     error = "Aufnahme fehlgeschlagen."
                                     saving = false
                                 }
@@ -229,26 +293,22 @@ fun ScannerPage(activity: MainActivity, examId: String, done: () -> Unit) {
                 Text("Linken und rechten Rand zuschneiden")
                 RangeSlider(
                     horizontal,
-                    { if (it.endInclusive - it.start >= 0.05f) horizontal = it },
+                    { if (it.endInclusive - it.start >= 0.05f) {
+                        cropLeft = it.start; cropRight = it.endInclusive
+                    } },
+                    modifier = Modifier.testTag("real-crop-horizontal"), enabled = !saving,
                 )
                 Text("Oberen und unteren Rand zuschneiden")
-                RangeSlider(vertical, { if (it.endInclusive - it.start >= 0.05f) vertical = it })
+                RangeSlider(vertical, { if (it.endInclusive - it.start >= 0.05f) {
+                    cropTop = it.start; cropBottom = it.endInclusive
+                } }, modifier = Modifier.testTag("real-crop-vertical"), enabled = !saving)
                 OutlinedButton(
                     {
-                        bitmap =
-                            Bitmap.createBitmap(
-                                b,
-                                0,
-                                0,
-                                b.width,
-                                b.height,
-                                Matrix().apply { postRotate(90f) },
-                                true,
-                            )
-                        horizontal = 0f..1f
-                        vertical = 0f..1f
+                        turns = (turns + 1) % 4
+                        cropLeft = 0f; cropRight = 1f
+                        cropTop = 0f; cropBottom = 1f
                     },
-                    Modifier.fillMaxWidth(), colors = bayernButtonColors(ButtonDefaults.outlinedButtonColors())) {
+                    Modifier.fillMaxWidth(), enabled = !saving, colors = bayernButtonColors(ButtonDefaults.outlinedButtonColors())) {
                     Text("90° drehen")
                 }
                 Action(
@@ -256,27 +316,47 @@ fun ScannerPage(activity: MainActivity, examId: String, done: () -> Unit) {
                     {
                         saving = true
                         val image =
-                            ScanImages.crop(
+                            ScanImages.detachedCrop(
                                 b,
                                 horizontal.start,
                                 vertical.start,
                                 horizontal.endInclusive,
                                 vertical.endInclusive,
                             )
-                        activity.action {
+                        // Enter try/finally synchronously so cancellation before IO starts still
+                        // releases the detached bitmap. Activity recreation may recycle the preview.
+                        activity.lifecycleScope.launch(start = CoroutineStart.UNDISPATCHED) {
                             try {
-                                val file = File(activity.cacheDir, "scan-page-${id()}.jpg")
-                                file.outputStream().use {
-                                    image.compress(Bitmap.CompressFormat.JPEG, 90, it)
+                                withContext(Dispatchers.IO) {
+                                    if (!active()) return@withContext
+                                    scanDir.mkdirs()
+                                    val file = File(scanDir, "scan-page-${id()}.jpg")
+                                    try {
+                                        ScanTiming.beforePageWrite?.invoke()
+                                        file.outputStream().use {
+                                            check(image.compress(Bitmap.CompressFormat.JPEG, 90, it))
+                                        }
+                                        ScanTiming.afterPageWrite?.invoke()
+                                        withContext(Dispatchers.Main) {
+                                            if (!active()) {
+                                                file.delete()
+                                                return@withContext
+                                            }
+                                            shots = ArrayList(shots + file.path)
+                                            current?.let { File(it).delete() }
+                                            current = null
+                                            bitmap = null
+                                        }
+                                    } catch (e: Exception) {
+                                        file.delete()
+                                        throw e
+                                    } finally { ScanTiming.afterPageWorker?.invoke() }
                                 }
-                                withContext(Dispatchers.Main) {
-                                    shots = ArrayList(shots + file.path)
-                                    current?.let { File(it).delete() }
-                                    current = null
-                                    bitmap = null
-                                }
-                            } finally {
-                                withContext(Dispatchers.Main) { saving = false }
+                            } catch (e: CancellationException) { throw e }
+                            catch (e: Exception) { if (active()) error = e.message ?: "Seite konnte nicht gespeichert werden." }
+                            finally {
+                                image.recycle()
+                                saving = false
                             }
                         }
                     },
@@ -287,7 +367,7 @@ fun ScannerPage(activity: MainActivity, examId: String, done: () -> Unit) {
                 current?.let { File(it).delete() }
                 current = null
                 bitmap = null
-            }, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) {
+            }, enabled = !saving, colors = bayernButtonColors(ButtonDefaults.textButtonColors())) {
                 Text("Aufnahme verwerfen")
             }
         }
@@ -317,10 +397,12 @@ fun ScannerPage(activity: MainActivity, examId: String, done: () -> Unit) {
                 saving = true
                 activity.action {
                     try {
-                        val pdf = File(activity.cacheDir, "scan-${id()}.pdf")
+                        if (!active()) return@action
+                        scanDir.mkdirs()
+                        val pdf = File(scanDir, "scan-${id()}.pdf")
                         try {
                             ScanImages.pdf(shots.map { File(it) }, pdf)
-                            activity.repo.addLocalPdf(examId, pdf)
+                            activity.repo.addLocalPdf(examId, pdf, generation)
                             shots.forEach { File(it).delete() }
                             withContext(Dispatchers.Main) {
                                 shots = arrayListOf()

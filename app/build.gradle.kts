@@ -1,6 +1,7 @@
 plugins {
     id("com.android.application")
     kotlin("android")
+    kotlin("plugin.serialization")
     kotlin("plugin.compose")
     kotlin("kapt")
 }
@@ -12,8 +13,8 @@ android {
         applicationId = "com.streberalarm.app"
         minSdk = 29
         targetSdk = 36
-        versionCode = 26
-        versionName = "0.1.25-dev"
+        versionCode = 31
+        versionName = "0.1.30"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildFeatures {
@@ -28,6 +29,7 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = true
+            isShrinkResources = true
             vcsInfo { include = false }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

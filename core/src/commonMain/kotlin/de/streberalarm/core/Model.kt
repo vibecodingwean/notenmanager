@@ -7,12 +7,30 @@ import kotlin.uuid.Uuid
 import kotlinx.datetime.DayOfWeek
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
 
 @OptIn(ExperimentalUuidApi::class) fun id(): String = Uuid.random().toString()
 
 val dataJson = Json {
     encodeDefaults = true
     ignoreUnknownKeys = false
+}
+
+/** The persisted v1 shape is upgraded before strict decoding; unknown fields still fail. */
+fun decodeSchoolData(json: String): SchoolData {
+    val root = dataJson.parseToJsonElement(json).jsonObject
+    val rawVersion = root["schema"]
+    val version = if (rawVersion == null) 1 else
+        requireNotNull(rawVersion.toString().toIntOrNull()) { "Unbekannte Backup-Version" }
+    require(version in 1..2) { "Unbekannte Backup-Version" }
+    val migrated = if (version == 1) buildJsonObject {
+        root.forEach { (key, value) -> put(key, value) }
+        put("schema", JsonPrimitive(2))
+    }.toString() else json
+    return dataJson.decodeFromString<SchoolData>(migrated).also { it.validate() }
 }
 
 @Serializable
@@ -206,7 +224,7 @@ data class Document(
 
 @Serializable
 data class SchoolData(
-    val schema: Int = 1,
+    val schema: Int = 2,
     val profiles: List<Profile> = emptyList(),
     val activeProfileId: String? = null,
     val subjects: List<Subject> = emptyList(),
@@ -220,6 +238,14 @@ data class SchoolData(
     val delivered: Set<String> = emptySet(),
     val graduation: Map<String, GraduationInput> = emptyMap(),
     val catalogVersion: Int = 0,
+    val vocabularyCollections: List<VocabularyCollection> = emptyList(),
+    val vocabularyCards: List<VocabularyCard> = emptyList(),
+    val vocabularyProgress: List<VocabularyProgress> = emptyList(),
+    val vocabularySessions: List<VocabularySession> = emptyList(),
+    val flashcardSets: List<FlashcardSet> = emptyList(),
+    val flashcards: List<Flashcard> = emptyList(),
+    val flashcardProgress: List<FlashcardProgress> = emptyList(),
+    val flashcardSessions: List<FlashcardSession> = emptyList(),
 ) {
     fun active() = profiles.find { it.id == activeProfileId }
 
@@ -232,7 +258,9 @@ data class SchoolData(
         ) {
             "Zu viele Einträge im Backup."
         }
-        require(schema == 1) { "Unbekannte Backup-Version" }
+        require(schema == 2) { "Unbekannte Backup-Version" }
+        validateVocabulary()
+        validateFlashcards()
         fun <T> unique(items: List<T>, key: (T) -> String) {
             require(items.map(key).distinct().size == items.size)
         }

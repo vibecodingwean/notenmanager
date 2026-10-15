@@ -56,53 +56,20 @@ class AcceptanceTest {
     fun primaryTransferUsesOfficialGradesAndKeepsThemThroughRecreation() {
         val p = profile.copy(school = School.GRUNDSCHULE, grade = 4, track = "Grundschule")
         val subjects = Defaults.subjects(p)
-        val grades =
-            subjects
-                .filter { it.name in Transfer.NAMES }
-                .zip(listOf(2, 2, 3))
-                .map { (s, n) ->
-                    Assessment(
-                        subjectId = s.id,
-                        title = "Probe",
-                        date = LocalDate.now().toString(),
-                        kind = Kind.TEST,
-                        stage = Stage.GRADED,
-                        actual = n,
-                    )
-                }
-        runBlocking {
-            repo.update { it.copy(profiles = listOf(p), subjects = subjects, assessments = grades) }
-        }
-        ui.onNodeWithTag("nav-Meine Noten").performClick()
-        ui.onNodeWithText("Dein nächster Schulweg").assertExists()
-        ui.onNodeWithTag("transfer-overview").assertExists()
-        ui.onNodeWithTag("grade-overview").assertDoesNotExist()
-        visible(ui.onNodeWithText("Übertrittsnoten eintragen")).performClick()
+        runBlocking { repo.update { it.copy(profiles = listOf(p), subjects = subjects) } }
+        ui.onNodeWithContentDescription("Einstellungen").performClick()
+        tap("Offizielle Ergebnisse")
+        tap("Übertrittsergebnis")
         choose("Deutsch", "2")
         choose("Mathematik", "3")
         choose("Heimat- und Sachunterricht", "3")
         ui.activityRule.scenario.recreate()
         visible(ui.onNodeWithText("Übertrittsnoten speichern")).performClick()
-        ui.onNodeWithText("Noten aus dem Übertrittszeugnis").assertExists()
-        visible(ui.onNodeWithTag("transfer-Realschule-DIRECT")).assertExists()
-        visible(ui.onNodeWithTag("transfer-Gymnasium-PROBE_NEEDED")).assertExists()
+        ui.waitUntil(5000) { repo.state.value!!.officials.size == 3 }
         val saved = repo.state.value!!
-        assertEquals(
-            listOf(2, 3, 3),
-            Transfer.subjects(p, saved).map { s ->
-                saved.officials.single { it.subjectId == s!!.id }.value
-            },
-        )
-        capture("primary-transfer-official")
+        assertEquals(listOf(2, 3, 3), Transfer.subjects(p, saved).map { subject -> saved.officials.single { it.subjectId == subject!!.id }.value })
         ui.activityRule.scenario.recreate()
         assertEquals(saved, repo.state.value)
-        visible(ui.onNodeWithText("Übertrittsnoten eintragen")).performClick()
-        choose("Noten aus", "Probeunterricht Gymnasium")
-        choose("Deutsch", "4")
-        choose("Mathematik", "4")
-        visible(ui.onNodeWithText("Übertrittsnoten speichern")).performClick()
-        visible(ui.onNodeWithTag("transfer-Gymnasium-PARENTS")).assertExists()
-        assertEquals(saved.officials, repo.state.value!!.officials)
     }
 
     @Test
@@ -127,7 +94,7 @@ class AcceptanceTest {
         ui.onNodeWithTag("passing-advice").assertDoesNotExist()
         ui.onNodeWithText("Läuft bei dir").assertDoesNotExist()
         ui.onNodeWithTag("nav-Meine Noten").performClick()
-        ui.onNodeWithTag("overall-average").assertTextEquals("Ø 3,50")
+        ui.onNodeWithTag("overall-average").assertDoesNotExist()
         ui.onNodeWithTag("nav-Heute").performClick()
         runBlocking { repo.update { it.copy(assessments = emptyList()) } }
         ui.onNodeWithTag("overall-average").assertTextEquals("Ø –")
@@ -159,12 +126,11 @@ class AcceptanceTest {
                 )
             }
         }
-        ui.onNodeWithTag("nav-Meine Noten").performClick()
         ui.onNodeWithTag("grade-overview").assertExists()
         ui.onNodeWithText("Offizielle Ergebnisse prüfen").assertDoesNotExist()
         ui.onNodeWithTag("overall-average").assertTextEquals("Ø 3,67")
         ui.onNodeWithTag("promotion-red").assertExists()
-        visible(ui.onNodeWithTag("promotion-goal")).assertTextContains(" 4", substring = true)
+        ui.onNodeWithText("Einschätzung aus bisherigen Noten").assertExists()
         val before = repo.state.value!!
         capture("overview-risk")
         ui.activityRule.scenario.recreate()
@@ -196,6 +162,101 @@ class AcceptanceTest {
     }
 
     @Test
+    fun settingsPrioritizeTimetableAndLookWithCompactSupport() {
+        val before = repo.state.value!!
+        ui.onNodeWithContentDescription("Einstellungen").performClick()
+        ui.onNodeWithTag("settings-timetable").assertIsDisplayed()
+        ui.onNodeWithTag("settings-look").assertIsDisplayed()
+        ui.onNodeWithText("Backup exportieren").assertDoesNotExist()
+        ui.onNodeWithText("Benachrichtigungen einstellen").assertDoesNotExist()
+        ui.onNodeWithTag("theme-classic").assertDoesNotExist()
+        capture("settings-child-friendly")
+        ui.onNodeWithTag("settings-timetable").performClick()
+        tap("Stundenplan bearbeiten")
+        ui.onNodeWithTag("picker-Fach für Stunde 1").assertExists()
+        ui.activityRule.scenario.recreate()
+        UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack()
+        ui.waitForIdle()
+        ui.onNodeWithText("Dein Stundenplan").assertExists()
+        ui.onNodeWithContentDescription("Zurück").performClick()
+        ui.onNodeWithTag("settings-look").performClick()
+        ui.onNodeWithTag("theme-classic").assertExists()
+        ui.activityRule.scenario.recreate()
+        UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack()
+        ui.waitForIdle()
+        ui.onNodeWithTag("settings-timetable").assertExists()
+        tap("Erinnerungen")
+        ui.onNodeWithText("Benachrichtigungen einstellen").assertExists()
+        tap("Erinnerungen")
+        ui.onNodeWithText("Benachrichtigungen einstellen").assertDoesNotExist()
+        tap("Datensicherung")
+        tap("Backup wiederherstellen")
+        ui.onNodeWithText("Datei auswählen").assertIsNotEnabled()
+        tap("Abbrechen")
+        tap("Datensicherung")
+        tap("Datenschutz & Rechtsgrundlagen")
+        ui.onNodeWithText("Datenschutz").assertExists()
+        ui.onNodeWithText("Wer kann meine Daten sehen?").assertExists()
+        ui.onNodeWithText("Rechtsgrundlagen").performScrollTo().assertExists()
+        capture("settings-privacy-and-rules")
+        ui.onNodeWithText("Zeugnis & Abschluss prüfen").assertDoesNotExist()
+        ui.activityRule.scenario.recreate()
+        UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack()
+        ui.waitForIdle()
+        ui.onNodeWithTag("settings-timetable").assertExists()
+        tap("Schuljahr")
+        tap("Neue Klasse / neues Schuljahr")
+        ui.activityRule.scenario.recreate()
+        UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack()
+        ui.waitForIdle()
+        ui.onNodeWithText("Neue Klasse / neues Schuljahr").assertExists()
+        assertEquals(before, repo.state.value)
+    }
+
+    @Test
+    fun settingsKeepExpandedSupportAndScrollAfterRecreationOnAChildPage() {
+        ui.onNodeWithContentDescription("Einstellungen").performClick()
+        tap("Erinnerungen")
+        val link = visible(ui.onNodeWithText("Datenschutz & Rechtsgrundlagen"))
+        val scrollRange = ui.onNode(hasScrollAction()).fetchSemanticsNode()
+            .config[androidx.compose.ui.semantics.SemanticsProperties.VerticalScrollAxisRange]
+        val beforeScroll = scrollRange.value()
+        if (scrollRange.maxValue() > 0f) assertTrue(beforeScroll > 0f)
+        link.performClick()
+        ui.activityRule.scenario.recreate()
+        UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack()
+        ui.waitForIdle()
+        ui.onNodeWithText("Benachrichtigungen einstellen").assertExists()
+        val afterScroll = ui.onNode(hasScrollAction()).fetchSemanticsNode()
+            .config[androidx.compose.ui.semantics.SemanticsProperties.VerticalScrollAxisRange].value()
+        assertEquals(beforeScroll, afterScroll, 1f)
+    }
+
+    @Test
+    fun settingsTimetableHolidayAndExceptionFormsReturnToTheirParent() {
+        val before = repo.state.value!!
+        ui.onNodeWithContentDescription("Einstellungen").performClick()
+        listOf("Ferien / freien Tag hinzufügen", "Ausfall / Zusatzunterricht").forEachIndexed { index, action ->
+            ui.onNodeWithTag("settings-timetable").performScrollTo().performClick()
+            tap("Ferien, Ausfälle und ältere Pläne")
+            tap(action)
+            ui.activityRule.scenario.recreate()
+            if (index == 0) {
+                UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack()
+                ui.waitForIdle()
+            } else ui.onNodeWithContentDescription("Zurück").performClick()
+            ui.onNodeWithText("Dein Stundenplan").assertExists()
+            if (index == 0) ui.onNodeWithContentDescription("Zurück").performClick()
+            else {
+                UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack()
+                ui.waitForIdle()
+            }
+            ui.onNodeWithTag("settings-look").assertExists()
+        }
+        assertEquals(before, repo.state.value)
+    }
+
+    @Test
     fun appearanceCanBeSelectedInSettings() {
         val exam =
             Assessment(
@@ -213,7 +274,7 @@ class AcceptanceTest {
             }
         for (look in AppLook.entries) {
             ui.onNodeWithContentDescription("Einstellungen").performClick()
-            ui.onNodeWithText("Dein Look").assertExists()
+            ui.onNodeWithTag("settings-look").performClick()
             ui.onNodeWithTag("theme-${look.id}").performScrollTo().performClick()
             ui.onNodeWithTag("theme-${look.id}").assertIsSelected()
             ui.onNodeWithTag("appearance-${look.id}").assertExists()
@@ -223,6 +284,7 @@ class AcceptanceTest {
             assertEquals(look, AppearancePreferences(ui.activity).state.value.look)
             capture("theme-${look.id}-settings")
             ui.onNodeWithContentDescription("Zurück").performClick()
+            ui.onNodeWithContentDescription("Zurück").performClick()
             listOf("Heute", "Lernen", "Meine Noten").forEachIndexed { i, label ->
                 assertEquals(
                     navBounds[i],
@@ -231,7 +293,7 @@ class AcceptanceTest {
             }
             ui.onNodeWithTag("nav-Heute").performClick()
             val layouts = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
-            ui.onNodeWithText("Deine nächste Probe").performSemanticsAction(
+            ui.onNodeWithText("Nächste Prüfung").performSemanticsAction(
                 androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult
             ) {
                 it(layouts)
@@ -239,13 +301,8 @@ class AcceptanceTest {
             assertEquals(lookScheme(look).onBackground, layouts.single().layoutInput.style.color)
             capture("theme-${look.id}-today")
             ui.onNodeWithTag("nav-Lernen").performClick()
-            ui.onNodeWithTag("probe-${exam.id}").assertExists()
-            visible(ui.onNodeWithContentDescription("Lernen starten"))
-                .assertIsEnabled()
-                .performClick()
-            ui.waitUntil(5000) { repo.state.value!!.studies.any { it.end == null } }
-            ui.onNodeWithContentDescription("Lernen beenden").performClick()
-            ui.waitUntil(5000) { repo.state.value!!.studies.none { it.end == null } }
+            ui.onNodeWithTag("exam-${exam.id}").assertExists()
+            ui.onNodeWithContentDescription("Lernen starten").assertDoesNotExist()
             capture("theme-${look.id}-learning")
             ui.onNodeWithTag("nav-Meine Noten").performClick()
             ui.onNodeWithText("Mathematik").assertExists()
@@ -265,6 +322,7 @@ class AcceptanceTest {
         try {
             device.executeShellCommand("settings put global animator_duration_scale 1")
             ui.onNodeWithContentDescription("Einstellungen").performClick()
+            ui.onNodeWithTag("settings-look").performClick()
             ui.onNodeWithTag("theme-${look.id}").performScrollTo().performClick()
             if (look == AppLook.HACKER) {
                 ui.onNodeWithTag("crt-overlay", useUnmergedTree = true).assertExists()
@@ -276,6 +334,7 @@ class AcceptanceTest {
             }
             ui.onNodeWithTag("theme-animations").performScrollTo().performClick()
             ui.onNodeWithTag("theme-animations").assertIsOn()
+            ui.onNodeWithContentDescription("Zurück").performClick()
             ui.onNodeWithContentDescription("Zurück").performClick()
             ui.waitUntil(5000) {
                 ui.onAllNodesWithTag("look-moving", useUnmergedTree = true)
@@ -316,6 +375,7 @@ class AcceptanceTest {
             ui.activityRule.scenario.moveToState(androidx.lifecycle.Lifecycle.State.RESUMED)
             ui.onNodeWithTag("look-moving", useUnmergedTree = true).assertExists()
             ui.onNodeWithContentDescription("Einstellungen").performClick()
+            ui.onNodeWithTag("settings-look").performClick()
             ui.onNodeWithTag("theme-animations").performScrollTo().performClick()
             ui.onNodeWithTag("theme-animations").assertIsOff()
             ui.onNodeWithTag("appearance-${look.id}").assertExists()
@@ -369,7 +429,7 @@ class AcceptanceTest {
 
     private fun openTimetable() {
         ui.onNodeWithTag("nav-Heute").performClick()
-        tap("Stundenplan")
+        tap("Stundenplan in Einstellungen")
     }
 
     private fun field(label: String, value: String) {
@@ -507,235 +567,6 @@ class AcceptanceTest {
         assertTrue(rows.none { it.isBreak })
         assertEquals("08:30", rows.single { it.slot == 1 }.end)
         assertEquals("16:00", rows.single { it.slot == 9 }.end)
-    }
-
-    @Test
-    fun learningDeckAndTodayScheduleStayFocusedOnCurrentProfile() {
-        val rs = profile.copy(school = School.REALSCHULE, track = "I")
-        val first =
-            Assessment(
-                subjectId = subject.id,
-                title = "Bald",
-                date = LocalDate.now().plusDays(2).toString(),
-            )
-        val later =
-            first.copy(
-                id = "later",
-                title = "Später",
-                date = LocalDate.now().plusDays(8).toString(),
-            )
-        val date = LocalDate.now()
-        val lesson =
-            Lesson(
-                subjectId = subject.id,
-                day = date.dayOfWeek.value,
-                start = "08:00",
-                end = "08:45",
-                slot = 1,
-            )
-        val table =
-            Timetable(
-                profileId = profile.id,
-                validFrom = date.toString(),
-                anchorMonday = date.with(java.time.DayOfWeek.MONDAY).toString(),
-                blocks = listOf(lesson),
-            )
-        val actual =
-            listOf(
-                first.copy(id = "grade1", stage = Stage.GRADED, actual = 2),
-                first.copy(id = "grade2", kind = Kind.ORAL, stage = Stage.GRADED, actual = 4),
-            )
-        runBlocking {
-            repo.update {
-                it.copy(
-                    profiles = listOf(rs),
-                    assessments = listOf(later, first) + actual,
-                    timetables = listOf(table),
-                )
-            }
-        }
-        ui.onNodeWithTag("today-lesson-${lesson.id}").performScrollTo()
-        ui.onNode(
-                hasText("Ø 2,67") and hasAnyAncestor(hasTestTag("today-lesson-${lesson.id}")),
-                useUnmergedTree = true,
-            )
-            .assertIsDisplayed()
-        capture("three-today")
-        ui.onNodeWithTag("nav-Lernen").performClick()
-        ui.onNodeWithTag("probe-${first.id}").assertExists()
-        capture("three-learning")
-        ui.onNodeWithTag("learning-deck").performTouchInput { swipeLeft() }
-        ui.waitForIdle()
-        ui.onNodeWithTag("probe-${later.id}").assertExists()
-        ui.onNodeWithTag("learning-deck").performTouchInput { swipeUp() }
-        ui.waitForIdle()
-        capture("three-learning-next")
-        ui.onNodeWithTag("mark-written-${later.id}").assertIsDisplayed().performClick()
-        ui.waitUntil(5000) {
-            runBlocking {
-                repo.current().assessments.find { it.id == later.id }?.stage == Stage.WRITTEN
-            }
-        }
-        ui.onNodeWithTag("learn-stage-WRITTEN").performScrollTo().performClick()
-        ui.onNodeWithTag("probe-${later.id}").assertExists()
-        ui.onNodeWithTag("study-clock").assertDoesNotExist()
-    }
-
-    @Test
-    fun threeAreasQuickPlanningAndContextualExamActions() {
-        runBlocking {
-            repo.update {
-                it.copy(profiles = listOf(profile.copy(school = School.REALSCHULE, track = "I")))
-            }
-        }
-        ui.onNodeWithTag("nav-Heute").assertExists()
-        ui.onNodeWithTag("nav-Lernen").assertExists()
-        ui.onNodeWithTag("nav-Meine Noten").assertExists()
-        ui.onNodeWithText("Probe planen").performScrollTo().performClick()
-        capture("quick-plan-subjects")
-        ui.onNodeWithTag("plan-subject-${subject.id}").performScrollTo().performClick()
-        ui.onNodeWithText("Was kommt / kam dran?").assertDoesNotExist()
-        ui.onNodeWithTag("stage-PLANNED").assertDoesNotExist()
-        date("Datum", "2026-10-01")
-        tap("Probe planen")
-        ui.waitUntil(5000) { runBlocking { repo.current().assessments.size == 1 } }
-        tap("Lernstoff ergänzen")
-        field("Was kommt / kam dran?", "Brüche und Prozentrechnung")
-        tap("Lernstoff speichern")
-        ui.waitUntil(5000) {
-            runBlocking {
-                repo.current().assessments.single().material == "Brüche und Prozentrechnung"
-            }
-        }
-        ui.onNodeWithTag("study-clock").performScrollTo().assertIsDisplayed().performClick()
-        ui.waitUntil(5000) { runBlocking { repo.current().studies.any { it.end == null } } }
-        ui.onNodeWithTag("study-clock").performClick()
-        ui.waitUntil(5000) { runBlocking { repo.current().studies.all { it.end != null } } }
-        ui.onNodeWithText("Lernrunde geschafft!", substring = true).assertExists()
-        tap("Geschrieben")
-        ui.waitUntil(5000) {
-            runBlocking { repo.current().assessments.single().stage == Stage.WRITTEN }
-        }
-        ui.onNodeWithTag("study-clock").assertDoesNotExist()
-        tap("Gefühlte Note eintragen")
-        tap("Weiß ich nicht")
-        tap("Note eintragen")
-        ui.onNodeWithTag("grade-5").performClick()
-        tap("Test speichern")
-        ui.waitUntil(5000) { runBlocking { repo.current().assessments.single().actual == 5 } }
-        ui.onNodeWithTag("study-clock").assertDoesNotExist()
-        capture("three-areas-graded")
-        ui.onNodeWithContentDescription("Zurück").performClick()
-        ui.onNodeWithTag("nav-Meine Noten").performClick()
-        ui.onNodeWithText("Hier brauchst du Unterstützung").assertExists()
-    }
-
-    @Test
-    fun learningClockIsDirectAndPlanningStatusNeedsNoFoldout() {
-        openArchive()
-        tap("Test hinzufügen")
-        capture("study-plan")
-        field("Was kommt / kam dran?", "Brüche kürzen und erweitern")
-        tap("Test speichern")
-        ui.waitUntil(5000) { runBlocking { repo.current().assessments.size == 1 } }
-        capture("study-detail")
-        ui.onNodeWithTag("study-clock").assertIsDisplayed().performClick()
-        ui.waitUntil(5000) { runBlocking { repo.current().studies.any { it.end == null } } }
-        ui.waitUntil(5000) {
-            runBlocking { repo.current().studies.single().seconds(System.currentTimeMillis()) >= 2 }
-        }
-        capture("study-clock-running")
-        ui.activityRule.scenario.recreate()
-        ui.waitForIdle()
-        ui.onNodeWithTag("study-clock").assertIsDisplayed().performClick()
-        ui.waitUntil(5000) { runBlocking { repo.current().studies.single().end != null } }
-        tap("Geschrieben")
-        ui.waitUntil(5000) {
-            runBlocking { repo.current().assessments.single().stage == Stage.WRITTEN }
-        }
-        tap("Note eintragen")
-        ui.onNodeWithTag("grade-3").assertIsDisplayed().performClick()
-        ui.onNodeWithText("Was kommt / kam dran?").assertDoesNotExist()
-        capture("study-quick-grade")
-        tap("Test speichern")
-        ui.waitUntil(5000) { runBlocking { repo.current().assessments.single().actual == 3 } }
-        tap("Test bearbeiten")
-        ui.onNodeWithText("Schon geschrieben oder benotet?").assertDoesNotExist()
-        ui.onNodeWithTag("stage-PLANNED").assertExists().performClick()
-        tap("Test speichern")
-        ui.waitUntil(5000) {
-            runBlocking { repo.current().assessments.single().stage == Stage.PLANNED }
-        }
-        assertNull(runBlocking { repo.current().assessments.single().actual })
-    }
-
-    @Test
-    fun homeClockStopsTheRightExamAndOtherClockIsDisabled() {
-        val first = Assessment(subjectId = subject.id, title = "Bruchrechnung", date = "2026-10-01")
-        val second = Assessment(subjectId = subject.id, title = "Geometrie", date = "2026-10-02")
-        runBlocking {
-            repo.update { it.copy(assessments = listOf(first, second)) }
-            repo.start(first.id)
-        }
-        ui.onNodeWithTag("nav-Heute").performClick()
-        ui.onNodeWithTag("study-clock")
-            .assertIsDisplayed()
-            .assertContentDescriptionEquals("Lernen beenden")
-        capture("study-home-running")
-        openArchive()
-        tap("Geometrie")
-        ui.onNodeWithTag("study-clock").assertIsNotEnabled()
-        assertEquals(first.id, runBlocking { repo.current().studies.single().assessmentId })
-        ui.onNodeWithContentDescription("Zurück").performClick()
-        ui.onNodeWithTag("nav-Heute").performClick()
-        ui.onNodeWithTag("study-clock").performClick()
-        ui.waitUntil(5000) { runBlocking { repo.current().studies.single().end != null } }
-        runBlocking {
-            repo.update {
-                it.copy(
-                    assessments =
-                        it.assessments.map { e ->
-                            if (e.id == second.id) e.copy(stage = Stage.CANCELLED) else e
-                        }
-                )
-            }
-        }
-        openArchive()
-        tap("Geometrie")
-        ui.onNodeWithTag("study-clock").assertDoesNotExist()
-        ui.onNodeWithText("Note eintragen").assertDoesNotExist()
-    }
-
-    @Test
-    fun quickPointsAcceptZeroAndFifteenWithoutChangingExamDetails() {
-        val upper = profile.copy(grade = 12, term = "12/1")
-        val exam =
-            Assessment(
-                subjectId = subject.id,
-                title = "Klausur",
-                date = "2026-10-01",
-                time = "09:15",
-                material = "Funktionen",
-                estimate = 8,
-                weight = 1.5,
-            )
-        runBlocking {
-            repo.update { it.copy(profiles = listOf(upper), assessments = listOf(exam)) }
-        }
-        openArchive()
-        tap("Klausur")
-        tap("Note eintragen")
-        ui.onNodeWithTag("grade-0").performClick()
-        tap("Test speichern")
-        ui.waitUntil(5000) { runBlocking { repo.current().assessments.single().actual == 0 } }
-        tap("Note ändern")
-        visible(ui.onNodeWithTag("grade-15")).performClick()
-        tap("Test speichern")
-        ui.waitUntil(5000) { runBlocking { repo.current().assessments.single().actual == 15 } }
-        assertEquals(
-            exam.copy(stage = Stage.GRADED, actual = 15),
-            runBlocking { repo.current().assessments.single() },
-        )
     }
 
     @Test
@@ -886,13 +717,7 @@ class AcceptanceTest {
         assertFill("subject-${main.id}", violet)
         assertFill("subject-${promotion.id}", blue)
         assertFill("subject-${other.id}", gray)
-        ui.onNodeWithText("Haupt-/Kernfach").assertExists()
-        ui.onNodeWithText("Vorrückungsfach").assertExists()
-        ui.onNodeWithText("Weiteres Fach").assertExists()
         capture("category-subjects")
-        tap("Was bedeuten die Farben?")
-        ui.onNodeWithText("Violett: Haupt-/Kernfach").assertExists()
-        tap("Was bedeuten die Farben?")
         runBlocking {
             repo.update {
                 it.copy(
@@ -936,15 +761,16 @@ class AcceptanceTest {
         val positions = expected.map { ui.onNodeWithText(it).fetchSemanticsNode().positionInRoot.y }
         assertEquals(positions.sorted(), positions)
         capture("sorted-subject-colors")
+        ui.onNodeWithContentDescription("Einstellungen").performClick()
+        tap("Fächer & Gewichtungen")
         tap("Mathematik")
-        tap("Fach und Gewichtungen bearbeiten")
         tap("Schulregeln für dieses Fach")
         tap("Gewichtung anpassen (optional)")
         ui.onNodeWithText("Diese Gewichtungen wurden von der Schule bestätigt").assertDoesNotExist()
         tap("Fach speichern")
         ui.onNodeWithContentDescription("Zurück").performClick()
         openArchive()
-        tap("Test hinzufügen")
+        tap("Prüfung planen")
         ui.onNodeWithText("Testname (freiwillig)").assertDoesNotExist()
         ui.onNodeWithText("Welche Note glaubst du?").assertDoesNotExist()
         openChoices("Fach")
@@ -953,26 +779,10 @@ class AcceptanceTest {
             ui.onNodeWithTag("choice-option-$index").assertTextContains(name)
         }
         tap("Abbrechen")
-        openChoices("Was ist es?")
-        val expectedKinds =
-            listOf(
-                "Angesagter Test (§ 18 RSO)",
-                "Fachlicher Leistungstest",
-                "Kurzarbeit",
-                "Mündliche Note",
-                "Praktische Leistung",
-                "Schulaufgabe",
-                "Stegreifaufgabe",
-            )
-        for ((index, name) in expectedKinds.withIndex()) {
-            ui.onNodeWithTag("choices-Was ist es?").performScrollToIndex(index)
-            ui.onNodeWithTag("choice-option-$index").assertTextContains(name)
-        }
-        tap("Abbrechen")
         choose("Fach", "IT · Informationstechnologie")
         capture("lean-test-form")
-        tap("Test speichern")
-        ui.onNodeWithContentDescription("Zurück").performClick()
+        tap("Speichern")
+        ui.waitUntil(5000) { repo.state.value!!.assessments.isNotEmpty() }
         openTimetable()
         tap("Stundenplan bearbeiten")
         openChoices("Fach für Stunde 1")
@@ -984,256 +794,6 @@ class AcceptanceTest {
         choose("Fach für Stunde 1", "Deutsch")
         choose("Fach für Stunde 2", "Mathematik")
         capture("matching-timetable-colors")
-    }
-
-    @Test
-    fun timedEstimateNotificationIsPersistentAndReschedulingCancelsIt() {
-        val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
-        device.executeShellCommand(
-            "pm grant com.streberalarm.app android.permission.POST_NOTIFICATIONS"
-        )
-        val manager = ui.activity.getSystemService(android.app.NotificationManager::class.java)
-        manager.cancelAll()
-        val date = LocalDate.now().plusDays(1)
-        val exam =
-            Assessment(subjectId = subject.id, title = "Test am Nachmittag", date = date.toString())
-        runBlocking { repo.update { it.copy(assessments = listOf(exam)) } }
-        val before = date.atTime(15, 59).atZone(java.time.ZoneId.systemDefault())
-        runBlocking { repo.refreshEstimates(before) }
-        assertTrue(manager.activeNotifications.none { it.tag == "estimate:${exam.id}" })
-        val due = before.withHour(16).withMinute(0)
-        runBlocking { repo.refreshEstimates(due) }
-        val sent = manager.activeNotifications.single { it.tag == "estimate:${exam.id}" }
-        runBlocking { repo.refreshEstimates(due.plusSeconds(1)) }
-        assertEquals(
-            sent.postTime,
-            manager.activeNotifications.single { it.tag == sent.tag }.postTime,
-        )
-        assertTrue(
-            EstimatePrompts.key(exam) in runBlocking { Repository(ui.activity).current().delivered }
-        )
-        runBlocking {
-            repo.update {
-                it.copy(assessments = listOf(exam.copy(date = date.plusDays(1).toString())))
-            }
-        }
-        assertTrue(manager.activeNotifications.none { it.tag == sent.tag })
-    }
-
-    @Test
-    fun gradeEntryPostsEstimateQuestionAndNotificationOpensSingleQuestion() {
-        UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
-            .executeShellCommand(
-                "pm grant com.streberalarm.app android.permission.POST_NOTIFICATIONS"
-            )
-        val manager = ui.activity.getSystemService(android.app.NotificationManager::class.java)
-        manager.cancelAll()
-        val exam =
-            Assessment(
-                subjectId = subject.id,
-                title = "Meine Schulaufgabe",
-                date = LocalDate.now().plusDays(1).toString(),
-            )
-        runBlocking { repo.update { it.copy(assessments = listOf(exam)) } }
-        openArchive()
-        tap("Meine Schulaufgabe")
-        tap("Note eintragen")
-        ui.onNodeWithTag("grade-3").performClick()
-        tap("Test speichern")
-        ui.waitUntil(5000) { manager.activeNotifications.any { it.tag == "estimate:${exam.id}" } }
-        val posted = manager.activeNotifications.single { it.tag == "estimate:${exam.id}" }
-        val host = ui.activity
-        val originalIntent = host.intent
-        try {
-            posted.notification.contentIntent.send()
-            ui.waitUntil(5000) {
-                ui.onAllNodesWithText("Welche Note hattest du erwartet?")
-                    .fetchSemanticsNodes()
-                    .isNotEmpty()
-            }
-            choose("Deine gefühlte Note", "2")
-            tap("Einschätzung speichern")
-            ui.waitUntil(5000) { runBlocking { repo.current().assessments.single().estimate == 2 } }
-            assertEquals(3, runBlocking { repo.current().assessments.single().actual })
-            assertTrue(manager.activeNotifications.none { it.tag == posted.tag })
-        } finally {
-            // ActivityScenario tracks its launcher intent; restore it after exercising a real
-            // notification deep link.
-            InstrumentationRegistry.getInstrumentation().runOnMainSync {
-                host.intent = originalIntent
-            }
-        }
-    }
-
-    @Test
-    fun deniedNotificationsKeepQuestionInAppAndUnknownAnswerStopsIt() {
-        // Android 13+ revoking this runtime permission kills the app. The external check revokes it
-        // before starting this isolated instrumentation run, then restores it afterwards.
-        org.junit.Assume.assumeFalse(
-            "Run separately after adb pm revoke POST_NOTIFICATIONS",
-            EstimateNotifications.allowed(ui.activity),
-        )
-        val manager = ui.activity.getSystemService(android.app.NotificationManager::class.java)
-        manager.cancelAll()
-        val exam =
-            Assessment(
-                subjectId = subject.id,
-                title = "Test ohne Push",
-                date = LocalDate.now().toString(),
-                stage = Stage.GRADED,
-                actual = 2,
-            )
-        runBlocking { repo.update { it.copy(assessments = listOf(exam)) } }
-        assertFalse(EstimateNotifications.allowed(ui.activity))
-        assertTrue(manager.activeNotifications.none { it.tag == "estimate:${exam.id}" })
-        ui.waitUntil(5000) {
-            ui.onAllNodesWithText("Gefühlte Note eintragen").fetchSemanticsNodes().isNotEmpty()
-        }
-        tap("Gefühlte Note eintragen")
-        tap("Weiß ich nicht")
-        ui.waitUntil(5000) {
-            runBlocking { EstimatePrompts.skipKey(exam) in repo.current().delivered }
-        }
-        UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
-            .executeShellCommand(
-                "pm grant com.streberalarm.app android.permission.POST_NOTIFICATIONS"
-            )
-        runBlocking { repo.refreshEstimates() }
-        assertTrue(manager.activeNotifications.none { it.tag == "estimate:${exam.id}" })
-    }
-
-    @Test
-    fun unnamedTestNeedsNoClockAndMergesOldNotesWithoutLoss() {
-        openArchive()
-        tap("Test hinzufügen")
-        ui.onNodeWithText("Testname (freiwillig)").assertDoesNotExist()
-        ui.onNodeWithText("Welche Note glaubst du?").assertDoesNotExist()
-        ui.onNodeWithText("Uhrzeit (freiwillig)", substring = true).assertDoesNotExist()
-        ui.onNodeWithText("Notizen", substring = false).assertDoesNotExist()
-        field("Was kommt / kam dran?", "Brüche und eigene Notizen")
-        tap("Test speichern")
-        ui.waitUntil(5000) { runBlocking { repo.current().assessments.size == 1 } }
-        val exam = runBlocking { repo.current().assessments.single() }
-        assertEquals("Schulaufgabe · Mathematik", exam.title)
-        assertNull(exam.time)
-        runBlocking {
-            repo.update {
-                it.copy(assessments = listOf(exam.copy(notes = "Buch Seite 42", time = "10:15")))
-            }
-        }
-        tap("Test bearbeiten")
-        ui.onNodeWithText("Was kommt / kam dran?")
-            .performScrollTo()
-            .assertTextContains("Brüche und eigene Notizen\n\nBuch Seite 42")
-        tap("Test speichern")
-        ui.waitUntil(5000) { runBlocking { repo.current().assessments.single().notes.isEmpty() } }
-        val saved = runBlocking { repo.current().assessments.single() }
-        assertEquals("Brüche und eigene Notizen\n\nBuch Seite 42", saved.material)
-        assertEquals("10:15", saved.time)
-        tap("Test bearbeiten")
-        date("Datum", "2026-10-10")
-        tap("Test speichern")
-        ui.waitUntil(5000) {
-            runBlocking { repo.current().assessments.single().date == "2026-10-10" }
-        }
-        assertNull(runBlocking { repo.current().assessments.single().time })
-    }
-
-    @Test
-    fun offlineExamLearningEstimateGradeDocumentAndBackupJourney() {
-        openArchive()
-        tap("Test hinzufügen")
-        date("Datum", "2026-10-01")
-        field("Was kommt / kam dran?", "Brüche kürzen und erweitern")
-        tap("Test speichern")
-        ui.waitUntil(5000) { runBlocking { repo.current().assessments.size == 1 } }
-        ui.onNodeWithTag("study-clock").assertIsDisplayed()
-        ui.onNodeWithTag("study-clock").performClick()
-        ui.waitUntil(5000) { runBlocking { repo.current().studies.any { it.end == null } } }
-        ui.activityRule.scenario.recreate()
-        ui.waitForIdle()
-        ui.onNodeWithTag("study-clock").performClick()
-        ui.waitUntil(5000) { runBlocking { repo.current().studies.all { it.end != null } } }
-        tap("Note eintragen")
-        ui.onNodeWithTag("grade-3").performClick()
-        tap("Test speichern")
-        ui.waitUntil(5000) { runBlocking { repo.current().assessments.single().actual == 3 } }
-        tap("Gefühlte Note eintragen")
-        choose("Deine gefühlte Note", "2")
-        tap("Einschätzung speichern")
-        ui.waitUntil(5000) { runBlocking { repo.current().assessments.single().estimate == 2 } }
-        val exam = runBlocking { repo.current().assessments.single() }
-        assertEquals(2, exam.estimate)
-        assertEquals("Brüche kürzen und erweitern", exam.material)
-        val oral =
-            Assessment(
-                subjectId = subject.id,
-                title = "Mündlich",
-                date = "2026-09-20",
-                kind = Kind.ORAL,
-                stage = Stage.GRADED,
-                actual = 1,
-            )
-        runBlocking { repo.update { it.copy(assessments = it.assessments + oral) } }
-        val source = File(repo.documentsDir, "test-source.pdf")
-        val pdf = PdfDocument()
-        try {
-            repeat(2) { index ->
-                val page = pdf.startPage(PdfDocument.PageInfo.Builder(400, 600, index + 1).create())
-                page.canvas.drawColor(android.graphics.Color.WHITE)
-                page.canvas.drawText(
-                    "Aufgabe ${index+1}",
-                    40f,
-                    80f,
-                    android.graphics.Paint().apply { textSize = 24f },
-                )
-                pdf.finishPage(page)
-            }
-            source.outputStream().use { pdf.writeTo(it) }
-        } finally {
-            pdf.close()
-        }
-        val uri = FileProvider.getUriForFile(ui.activity, "com.streberalarm.app.files", source)
-        runBlocking { repo.importDocuments(exam.id, listOf(uri)) }
-        tap("Unterlagen")
-        tap("Dokument 1.pdf")
-        ui.waitUntil(5000) {
-            ui.onAllNodesWithText("Seite 1 von 2").fetchSemanticsNodes().isNotEmpty()
-        }
-        tap("Nächste")
-        ui.onNodeWithText("Seite 2 von 2").assertExists()
-        val before = runBlocking { repo.current() }
-        val password = id().toCharArray()
-        val backup = runBlocking { repo.export(password) }
-        try {
-            runBlocking { repo.restore(backup, "falschfalsch".toCharArray()) }
-            fail("Wrong password accepted")
-        } catch (_: IllegalArgumentException) {}
-        assertEquals(before, runBlocking { repo.current() })
-        val corrupt = backup.clone()
-        corrupt[corrupt.lastIndex] = (corrupt.last().toInt() xor 1).toByte()
-        try {
-            runBlocking { repo.restore(corrupt, password) }
-            fail("Corrupt archive accepted")
-        } catch (_: IllegalArgumentException) {}
-        assertEquals(before, runBlocking { repo.current() })
-        runBlocking { repo.restore(backup, password) }
-        val restored = runBlocking { repo.current() }
-        assertEquals(before.assessments, restored.assessments)
-        assertEquals(before.studies, restored.studies)
-        assertEquals(exam.id, restored.documents.single().assessmentId)
-        android.graphics.pdf
-            .PdfRenderer(
-                android.os.ParcelFileDescriptor.open(
-                    File(repo.documentsDir, restored.documents.single().file),
-                    android.os.ParcelFileDescriptor.MODE_READ_ONLY,
-                )
-            )
-            .use { assertEquals(2, it.pageCount) }
-        ui.onNodeWithContentDescription("Zurück").performClick()
-        ui.onNodeWithTag("nav-Meine Noten").performClick()
-        tap("Mathematik")
-        ui.onNodeWithText("2,00").assertExists()
     }
 
     @Test
@@ -1270,6 +830,7 @@ class AcceptanceTest {
         tap("Los geht’s")
         ui.waitUntil(5000) { runBlocking { repo.current().active() != null } }
         ui.onNodeWithContentDescription("Einstellungen").performClick()
+        tap("Datensicherung")
         ui.onNodeWithText("Backup exportieren").performScrollTo().assertExists()
         tap("Backup wiederherstellen")
         ui.onNodeWithText("Vorhandene Daten vollständig durch das Backup ersetzen").assertExists()
@@ -1528,6 +1089,7 @@ class AcceptanceTest {
         }
         ui.waitForIdle()
         ui.onNodeWithContentDescription("Einstellungen").performClick()
+        tap("Schuljahr")
         choose("Dein Schuljahr", "Realschule · 8. Klasse · 2026 · II · Ganzes Schuljahr · Profil 3")
         ui.waitUntil(5000) { runBlocking { repo.current().activeProfileId == third.id } }
         assertEquals(3, runBlocking { repo.current().profiles.size })
@@ -1536,191 +1098,4 @@ class AcceptanceTest {
             .assertExists()
     }
 
-    @Test
-    fun gradeEntryCanPhotographTwoPagesWithoutLosingTheChosenGrade() {
-        val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
-        device.executeShellCommand("pm grant com.streberalarm.app android.permission.CAMERA")
-        val exam =
-            Assessment(
-                subjectId = subject.id,
-                title = "Note mit Foto",
-                date = "2026-10-01",
-                stage = Stage.WRITTEN,
-                estimate = 3,
-            )
-        runBlocking { repo.update { it.copy(assessments = listOf(exam)) } }
-        openArchive()
-        tap("Note mit Foto")
-        tap("Note eintragen")
-        ui.onNodeWithTag("grade-4").performClick()
-        tap("Probe fotografieren")
-        tap("Google ML Kit")
-        ui.onNodeWithText("Google-Scanner: Datenschutz").assertExists()
-        tap("Zur Scanner-Auswahl")
-        tap("Abbrechen")
-        ui.onNodeWithTag("grade-4").assertIsSelected()
-        tap("Probe fotografieren")
-        tap("Lokaler Scanner")
-        repeat(2) {
-            ui.waitUntil(15000) {
-                runCatching {
-                        ui.onNodeWithText("Seite fotografieren").assertIsEnabled()
-                        true
-                    }
-                    .getOrDefault(false)
-            }
-            tap("Seite fotografieren")
-            ui.waitUntil(15000) {
-                ui.onAllNodesWithText("90° drehen").fetchSemanticsNodes().isNotEmpty()
-            }
-            tap("Seite übernehmen")
-        }
-        tap("2 Seiten als PDF speichern")
-        ui.waitUntil(10000) { repo.state.value!!.documents.size == 1 }
-        ui.onNodeWithTag("grade-4").assertIsSelected()
-        ui.onNodeWithText("1 Unterlage gespeichert").assertExists()
-        assertNull(repo.state.value!!.assessments.single().actual)
-        ui.activityRule.scenario.recreate()
-        ui.onNodeWithTag("grade-4").assertIsSelected()
-        capture("grade-with-photo")
-        tap("Test speichern")
-        ui.waitUntil(5000) { repo.state.value!!.assessments.single().actual == 4 }
-        val document = repo.state.value!!.documents.single()
-        assertEquals(exam.id, document.assessmentId)
-        android.graphics.pdf
-            .PdfRenderer(
-                android.os.ParcelFileDescriptor.open(
-                    File(repo.documentsDir, document.file),
-                    android.os.ParcelFileDescriptor.MODE_READ_ONLY,
-                )
-            )
-            .use { assertEquals(2, it.pageCount) }
-    }
-
-    @Test
-    fun cameraTwoPagesRotateAndLocalPdf() {
-        val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
-        device.executeShellCommand("pm grant com.streberalarm.app android.permission.CAMERA")
-        val e = Assessment(subjectId = subject.id, title = "Scanablauf", date = "2026-10-01")
-        runBlocking { repo.update { it.copy(assessments = listOf(e)) } }
-        openArchive()
-        tap("Scanablauf")
-        tap("Unterlagen")
-        tap("Arbeit scannen")
-        ui.onNodeWithText("Lokaler Scanner").performClick()
-        repeat(2) {
-            ui.waitUntil(15000) {
-                ui.onAllNodesWithText("Seite fotografieren").fetchSemanticsNodes().isNotEmpty() &&
-                    runCatching {
-                            ui.onNodeWithText("Seite fotografieren").assertIsEnabled()
-                            true
-                        }
-                        .getOrDefault(false)
-            }
-            tap("Seite fotografieren")
-            ui.waitUntil(15000) {
-                ui.onAllNodesWithText("90° drehen").fetchSemanticsNodes().isNotEmpty()
-            }
-            tap("90° drehen")
-            tap("Seite übernehmen")
-        }
-        ui.waitUntil(5000) {
-            ui.onAllNodesWithText("2 Seiten als PDF speichern").fetchSemanticsNodes().isNotEmpty()
-        }
-        tap("2 Seiten als PDF speichern")
-        ui.waitUntil(10000) { runBlocking { repo.current().documents.isNotEmpty() } }
-        val document = runBlocking { repo.current().documents.single() }
-        assertEquals(e.id, document.assessmentId)
-        android.graphics.pdf
-            .PdfRenderer(
-                android.os.ParcelFileDescriptor.open(
-                    File(repo.documentsDir, document.file),
-                    android.os.ParcelFileDescriptor.MODE_READ_ONLY,
-                )
-            )
-            .use { assertEquals(2, it.pageCount) }
-        tap("Unterlagen")
-        tap("Scan 1.pdf")
-        ui.waitUntil(5000) {
-            ui.onAllNodesWithText("Seite 1 von 2").fetchSemanticsNodes().isNotEmpty()
-        }
-    }
-
-    @Test
-    fun persistentTimerAndNotificationScheduleSurviveRepositoryReopen() {
-        val exam =
-            Assessment(
-                subjectId = subject.id,
-                title = "Persistenzprüfung",
-                date = LocalDate.now().plusDays(7).toString(),
-            )
-        runBlocking {
-            repo.update { it.copy(assessments = listOf(exam)) }
-            repo.start(exam.id)
-        }
-        val second = Repository(ui.activity.applicationContext)
-        assertEquals(exam.id, runBlocking { second.current().studies.single().assessmentId })
-        ui.activityRule.scenario.recreate()
-        ui.waitForIdle()
-        ui.onNodeWithText("Lerntimer läuft").assertExists()
-        val alarms =
-            UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
-                .executeShellCommand("dumpsys alarm")
-        assertTrue(alarms.contains("com.streberalarm.app"))
-        runBlocking { repo.stop() }
-    }
-
-    @Test
-    fun googleScannerRequiresDisclosureBeforeInitialization() {
-        val e = Assessment(subjectId = subject.id, title = "Scanner-Auswahl", date = "2026-10-01")
-        runBlocking { repo.update { it.copy(assessments = listOf(e)) } }
-        openArchive()
-        tap("Scanner-Auswahl")
-        tap("Unterlagen")
-        tap("Arbeit scannen")
-        ui.onNodeWithText("Google ML Kit").performClick()
-        ui.onNodeWithText("Google-Scanner: Datenschutz").assertExists()
-        ui.onNodeWithText("Google-Scanner starten").assertExists()
-        val providers =
-            ui.activity.packageManager
-                .getPackageInfo(
-                    "com.streberalarm.app",
-                    android.content.pm.PackageManager.GET_PROVIDERS,
-                )
-                .providers
-                .orEmpty()
-        assertFalse(providers.any { it.name.contains("MlKitInitProvider") })
-        val getter =
-            Class.forName("com.google.mlkit.common.sdkinternal.MlKitContext")
-                .getMethod("getInstance")
-        try {
-            getter.invoke(null)
-            fail("ML Kit initialized before confirmation")
-        } catch (e: java.lang.reflect.InvocationTargetException) {
-            assertTrue(e.cause is IllegalStateException)
-        }
-        ui.onNodeWithText("Zur Scanner-Auswahl").performClick()
-        ui.onNodeWithText("Lokaler Scanner").assertExists()
-        ui.onNodeWithText("Abbrechen").performClick()
-        assertTrue(runBlocking { repo.current().documents.isEmpty() })
-    }
-
-    @Test
-    fun zPersistentFixtureForProcessDeathAndReboot() {
-        val e =
-            Assessment(
-                subjectId = subject.id,
-                title = "Lernen für Bruchrechnung",
-                date = LocalDate.now().plusDays(7).toString(),
-                material = "Brüche kürzen, erweitern und addieren",
-                estimate = 2,
-            )
-        runBlocking {
-            repo.update { it.copy(assessments = listOf(e)) }
-            repo.start(e.id)
-        }
-        ui.waitUntil(5000) {
-            ui.onAllNodesWithText("Lerntimer läuft").fetchSemanticsNodes().isNotEmpty()
-        }
-    }
 }

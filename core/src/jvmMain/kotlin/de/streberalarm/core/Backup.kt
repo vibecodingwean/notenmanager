@@ -39,6 +39,10 @@ object Backup {
         require(data.documents.sumOf { it.size } < LIMIT / 2) {
             "Backup zu groß (maximal 80 MiB Dokumente)."
         }
+        val json = dataJson.encodeToString(data).toByteArray(Charsets.UTF_8)
+        require(json.size.toLong() <= MAX_DOCUMENT_BYTES) {
+            "Backup-Daten überschreiten das Größenlimit von 40 MiB."
+        }
         val out = ByteArrayOutputStream()
         ZipOutputStream(out).use { zip ->
             fun put(name: String, bytes: ByteArray) {
@@ -46,13 +50,14 @@ object Backup {
                 zip.write(bytes)
                 zip.closeEntry()
             }
-            put("data.json", dataJson.encodeToString(data).toByteArray())
+            put("data.json", json)
             data.documents.forEach { d ->
                 val bytes = readFile(d.file)
                 require(bytes.size.toLong() == d.size)
                 put("documents/${d.file}", bytes)
             }
         }
+        require(out.size().toLong() + 52 <= LIMIT) { "Backup überschreitet Größenlimit." }
         val salt = ByteArray(16).also { SecureRandom().nextBytes(it) }
         val nonce = ByteArray(12).also { SecureRandom().nextBytes(it) }
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
@@ -96,7 +101,8 @@ object Backup {
                     ) {
                         "Unzulässiger Backup-Pfad."
                     }
-                    require(entry.name !in entries && entries.size < 2000)
+                    // 2,000 documents plus the mandatory data.json entry.
+                    require(entry.name !in entries && entries.size < 2001)
                     val out = ByteArrayOutputStream()
                     val buffer = ByteArray(8192)
                     while (true) {
@@ -112,7 +118,7 @@ object Backup {
                 }
             }
             val json = entries.remove("data.json") ?: error("Backup-Daten fehlen.")
-            val data = dataJson.decodeFromString<SchoolData>(json.toString(Charsets.UTF_8))
+            val data = decodeSchoolData(json.toString(Charsets.UTF_8))
             data.validate()
             require(entries.keys == data.documents.map { "documents/${it.file}" }.toSet()) {
                 "Dokumentzuordnung unvollständig."

@@ -90,7 +90,8 @@ fun ProbeCard(
                     own != null,
                     enabled = own != null || active == null && e.stage != Stage.CANCELLED,
                 ) {
-                    a.action { if (own != null) a.repo.stop() else a.repo.start(e.id) }
+                    val generation = a.repo.vocabularyGeneration.value
+                    a.action { if (own != null) a.repo.stop(generation) else a.repo.start(e.id, generation) }
                 }
                 if (active != null && own == null)
                     Text(
@@ -163,8 +164,9 @@ fun ProbeCard(
                 ) {
                     TextButton(
                         {
+                            val generation = a.repo.vocabularyGeneration.value
                             a.action {
-                                a.repo.update { current ->
+                                a.repo.update(generation) { current ->
                                     current.copy(
                                         assessments =
                                             current.assessments.map { old ->

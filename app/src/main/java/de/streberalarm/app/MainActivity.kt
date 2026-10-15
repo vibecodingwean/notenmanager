@@ -27,7 +27,9 @@ class MainActivity : ComponentActivity() {
     val busy = MutableStateFlow(false)
     val estimateRequest = MutableStateFlow<String?>(null)
     private var targetExam: String? = null
+    private var targetGeneration: Long? = null
     private var backupPassword: CharArray? = null
+    private var backupGeneration: Long? = null
     private val notifications =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) {
             action { repo.refreshEstimates() }
@@ -36,8 +38,9 @@ class MainActivity : ComponentActivity() {
         registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
             if (uris.isNotEmpty())
                 targetExam?.let { exam ->
+                    val generation = targetGeneration
                     action {
-                        repo.importDocuments(exam, uris)
+                        repo.importDocuments(exam, uris, generation)
                         message.value = "${uris.size} Dokumente gespeichert."
                     }
                 }
@@ -50,8 +53,9 @@ class MainActivity : ComponentActivity() {
                     scan?.pdf?.uri?.let { listOf(it) } ?: scan?.pages?.map { it.imageUri }.orEmpty()
                 if (uris.isNotEmpty())
                     targetExam?.let { exam ->
+                        val generation = targetGeneration
                         action {
-                            repo.importDocuments(exam, uris)
+                            repo.importDocuments(exam, uris, generation)
                             message.value = "Google-Scan gespeichert."
                         }
                     }
@@ -62,11 +66,13 @@ class MainActivity : ComponentActivity() {
             ActivityResultContracts.CreateDocument("application/octet-stream")
         ) { uri ->
             val password = backupPassword
+            val generation = backupGeneration
             backupPassword = null
+            backupGeneration = null
             if (uri != null && password != null)
                 action {
                     try {
-                        val bytes = repo.export(password)
+                        val bytes = repo.export(password, generation)
                         contentResolver.openOutputStream(uri, "wt")!!.use { it.write(bytes) }
                         message.value = "Verschlüsseltes Backup gespeichert."
                     } finally {
@@ -78,7 +84,9 @@ class MainActivity : ComponentActivity() {
     private val restorer =
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             val password = backupPassword
+            val generation = backupGeneration
             backupPassword = null
+            backupGeneration = null
             if (uri != null && password != null)
                 action {
                     try {
@@ -87,7 +95,7 @@ class MainActivity : ComponentActivity() {
                                 readLimited(it, Backup.LIMIT)
                             }
                         require(bytes.size <= Backup.LIMIT) { "Backup ist zu groß." }
-                        repo.restore(bytes, password)
+                        repo.restore(bytes, password, generation)
                         message.value = "Backup vollständig wiederhergestellt."
                     } finally {
                         password.fill('\u0000')
@@ -100,20 +108,22 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         targetExam = savedInstanceState?.getString("targetExam")
+        targetGeneration = savedInstanceState?.getLong("targetGeneration")
         if (savedInstanceState == null)
-            estimateRequest.value = intent.getStringExtra(EstimateNotifications.EXTRA_EXAM)
+            estimateRequest.value = null
         setContent { StreberAlarm(this) }
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        estimateRequest.value = intent.getStringExtra(EstimateNotifications.EXTRA_EXAM)
+        estimateRequest.value = null
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         outState.putString("targetExam", targetExam)
+        targetGeneration?.let { outState.putLong("targetGeneration", it) }
     }
 
     override fun onResume() {
@@ -157,12 +167,14 @@ class MainActivity : ComponentActivity() {
 
     fun import(examId: String) {
         targetExam = examId
+        targetGeneration = repo.vocabularyGeneration.value
         importer.launch(arrayOf("application/pdf", "image/jpeg", "image/png"))
     }
 
     /** Called only by the explicit Google privacy disclosure confirmation. */
     fun scanGoogle(examId: String) {
         targetExam = examId
+        targetGeneration = repo.vocabularyGeneration.value
         try {
             MlKit.initialize(applicationContext)
             val options =
@@ -190,12 +202,14 @@ class MainActivity : ComponentActivity() {
     fun export(password: String) {
         backupPassword?.fill('\u0000')
         backupPassword = password.toCharArray()
+        backupGeneration = repo.vocabularyGeneration.value
         exporter.launch("NotenManager-${java.time.LocalDate.now()}.sabackup")
     }
 
     fun restore(password: String) {
         backupPassword?.fill('\u0000')
         backupPassword = password.toCharArray()
+        backupGeneration = repo.vocabularyGeneration.value
         restorer.launch(arrayOf("*/*"))
     }
 }

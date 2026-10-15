@@ -16,4 +16,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "StreberAlarm"
 
-include(":core", ":app")
+include(":core")
+if (providers.gradleProperty("iosCoreOnly").orNull != "true") include(":app")

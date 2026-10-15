@@ -65,4 +65,29 @@ class TodayLessonsTest {
         assertEquals("Passt gerade – im Blick behalten", learningHint(true, 5.0))
         assertEquals("Läuft gut", learningHint(true, 10.0))
     }
+    @Test
+    fun calendarNavigationIncludesWeekendsAndCrossesYearBoundaries() {
+        assertEquals("2027-01-01", adjacentDay("2026-12-31", 1))
+        assertEquals("2026-12-31", adjacentDay("2027-01-01", -1))
+        assertEquals("2026-09-19", adjacentDay("2026-09-18", 1))
+        assertEquals("2026-09-20", adjacentDay("2026-09-19", 1))
+    }
+    @Test
+    fun examCountNeedsMatchingEffectiveSubjectPlanAndKeepsKnownZero() {
+        val p = Profile()
+        val subject = Subject(profileId = p.id, name = "Mathematik")
+        val other = Subject(profileId = p.id, name = "Deutsch")
+        val now = java.time.LocalDateTime.parse("2026-10-12T07:00")
+        val exam = Assessment(subjectId = subject.id, title = "Prüfung", date = "2026-10-13")
+        val lesson = Lesson(subjectId = subject.id, day = 1, start = "08:00", end = "08:45")
+        val table = Timetable(profileId = p.id, validFrom = "2026-09-01", anchorMonday = "2026-09-07", blocks = listOf(lesson))
+        val data = SchoolData(profiles = listOf(p), activeProfileId = p.id, subjects = listOf(subject, other))
+        assertNull(remainingLessonCount(data, exam, now))
+        assertNull(remainingLessonCount(data.copy(timetables = listOf(table.copy(blocks = listOf(lesson.copy(subjectId = other.id))))), exam, now))
+        assertNull(remainingLessonCount(data.copy(timetables = listOf(table.copy(validFrom = "2026-10-14"))), exam, now))
+        assertEquals(1, remainingLessonCount(data.copy(timetables = listOf(table)), exam, now))
+        assertEquals(0, remainingLessonCount(data.copy(timetables = listOf(table.copy(blocks = listOf(lesson.copy(day = 5))))), exam, now))
+        val replacement = table.copy(id = "new", validFrom = "2026-10-01", blocks = listOf(lesson.copy(subjectId = other.id)))
+        assertNull(remainingLessonCount(data.copy(timetables = listOf(table, replacement)), exam, now))
+    }
 }
